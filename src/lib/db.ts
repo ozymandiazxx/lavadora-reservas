@@ -126,14 +126,25 @@ export async function createLostFoundReport(
   reportType: LostFoundType,
   description: string,
   location: string | null,
+  photo: File | null,
 ): Promise<DbResult<null>> {
   if (isDemoMode) {
-    const { error } = await mockDb.createLostFoundReport(reporterId, reportType, description, location)
+    const photoUrl = photo ? URL.createObjectURL(photo) : null
+    const { error } = await mockDb.createLostFoundReport(reporterId, reportType, description, location, photoUrl)
     return { data: null, error: toDbError(error) }
   }
+
+  let photoUrl: string | null = null
+  if (photo) {
+    const path = `${reporterId}/${crypto.randomUUID()}-${photo.name}`
+    const { error: uploadError } = await supabase!.storage.from('lost-found').upload(path, photo)
+    if (uploadError) return { data: null, error: toDbError(uploadError) }
+    photoUrl = supabase!.storage.from('lost-found').getPublicUrl(path).data.publicUrl
+  }
+
   const { error } = await supabase!
     .from('lost_found_reports')
-    .insert({ report_type: reportType, description, location })
+    .insert({ report_type: reportType, description, location, photo_url: photoUrl })
   return { data: null, error: toDbError(error) }
 }
 

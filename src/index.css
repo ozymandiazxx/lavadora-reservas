@@ -1,10 +1,37 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'Plus Jakarta Sans', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Nunito', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --color-cream: #faf9f6;
 }
 
+html,
 body {
   margin: 0;
-  background-color: var(--color-slate-100);
+  background-color: var(--color-cream);
+  overscroll-behavior-y: none;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

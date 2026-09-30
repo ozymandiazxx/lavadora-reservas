@@ -1,0 +1,17 @@
+{
+  "name": "Reserva de lavadora",
+  "short_name": "Lavadora",
+  "description": "Reservá la lavadora del edificio y organizá objetos perdidos con tus vecinos.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#faf9f6",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

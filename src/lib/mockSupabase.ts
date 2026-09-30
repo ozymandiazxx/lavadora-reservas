@@ -82,6 +82,7 @@ function seedLostFound(): LostFoundReport[] {
       report_type: 'encontrado',
       description: 'Toalla celeste con rayas blancas',
       location: 'En el tendedero del fondo',
+      photo_url: null,
       resolved: false,
       created_at: now,
       ...NEIGHBOR_PROFILES['neighbor-1'],
@@ -92,6 +93,7 @@ function seedLostFound(): LostFoundReport[] {
       report_type: 'perdido',
       description: 'Par de medias negras con detalle blanco',
       location: null,
+      photo_url: null,
       resolved: false,
       created_at: now,
       ...NEIGHBOR_PROFILES['neighbor-3'],
@@ -220,6 +222,7 @@ export const mockDb = {
     reportType: LostFoundType,
     description: string,
     location: string | null,
+    photoUrl: string | null,
   ): Promise<MockResult<LostFoundReport>> {
     const profile = profileFor(reporterId === DEMO_TENANT_ID ? DEMO_TENANT_ID : reporterId)
     const report: LostFoundReport = {
@@ -228,6 +231,7 @@ export const mockDb = {
       report_type: reportType,
       description,
       location,
+      photo_url: photoUrl,
       resolved: false,
       created_at: new Date().toISOString(),
       ...profile,

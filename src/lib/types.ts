@@ -40,6 +40,7 @@ export interface LostFoundReport {
   report_type: LostFoundType
   description: string
   location: string | null
+  photo_url: string | null
   resolved: boolean
   created_at: string
   first_name: string
