@@ -24,7 +24,6 @@ export function LaundryBooking({ userId }: { userId: string }) {
   const [selectedTime, setSelectedTime] = useState('')
   const [occupiedRanges, setOccupiedRanges] = useState<OccupiedRange[]>([])
   const [myReservations, setMyReservations] = useState<Reservation[]>([])
-  const [loadingRanges, setLoadingRanges] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [gridRefreshKey, setGridRefreshKey] = useState(0)
   const { toast, showToast, dismissToast } = useToast()
@@ -38,11 +37,9 @@ export function LaundryBooking({ userId }: { userId: string }) {
   }, [loadMyReservations])
 
   const loadOccupied = useCallback(() => {
-    setLoadingRanges(true)
     fetchOccupiedRanges(selectedDate).then(({ data, error }) => {
       if (error) showToast(classifyReservationError(error), 'error')
       setOccupiedRanges(data ?? [])
-      setLoadingRanges(false)
     })
   }, [selectedDate, showToast])
 

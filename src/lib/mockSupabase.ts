@@ -108,7 +108,9 @@ interface MockResult<T> {
   error: { code: string; message: string } | null
 }
 
-function profileFor(tenantId: string): Pick<Profile, 'first_name' | 'last_name' | 'room_number' | 'room_type' | 'phone'> {
+function profileFor(
+  tenantId: string,
+): Pick<Profile, 'first_name' | 'last_name' | 'room_number' | 'room_type' | 'floor' | 'phone'> {
   if (tenantId === DEMO_TENANT_ID) return DEMO_PROFILE
   return (
     NEIGHBOR_PROFILES[tenantId] ?? {
@@ -116,6 +118,7 @@ function profileFor(tenantId: string): Pick<Profile, 'first_name' | 'last_name' 
       last_name: '',
       room_number: '?',
       room_type: 'normal',
+      floor: 'piso_2',
       phone: '',
     }
   )
