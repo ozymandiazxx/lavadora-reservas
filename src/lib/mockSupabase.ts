@@ -1,5 +1,28 @@
-import type { LostFoundReport, LostFoundType, OccupiedRange, Profile, Reservation, ReservationWithDetails } from './types'
-import { dateOf, isoWeekKey, nowLocalDateTime, rangesOverlap, reservationEnd, todayLocalISO, combineDateAndTime } from './dateUtils'
+import type {
+  AppNotification,
+  LostFoundReport,
+  LostFoundType,
+  OccupiedRange,
+  Profile,
+  Reservation,
+  ReservationWithDetails,
+} from './types'
+import {
+  dateOf,
+  formatShortDateTime,
+  isoWeekKey,
+  nowLocalDateTime,
+  rangesOverlap,
+  reservationEnd,
+  todayLocalISO,
+  combineDateAndTime,
+} from './dateUtils'
+
+const OWNER_RECIPIENT = 'owner'
+
+interface DemoNotification extends AppNotification {
+  recipientId: string
+}
 
 export const DEMO_TENANT_ID = 'demo-tenant-0000-0000-000000000000'
 
@@ -103,6 +126,7 @@ function seedLostFound(): LostFoundReport[] {
 
 let reservations: Reservation[] = seedReservations()
 let lostFoundReports: LostFoundReport[] = seedLostFound()
+let notifications: DemoNotification[] = []
 let demoIsOwner = false
 
 interface MockResult<T> {
@@ -194,6 +218,30 @@ export const mockDb = {
       created_at: new Date().toISOString(),
     }
     reservations = [...reservations, newReservation]
+
+    const tenant = profileFor(tenantId)
+    const formatted = formatShortDateTime(startsAt)
+    const now = new Date().toISOString()
+    notifications = [
+      {
+        id: crypto.randomUUID(),
+        recipientId: tenantId,
+        title: 'Reserva confirmada',
+        body: `Tu turno de lavadora es el ${formatted}.`,
+        read: false,
+        created_at: now,
+      },
+      {
+        id: crypto.randomUUID(),
+        recipientId: OWNER_RECIPIENT,
+        title: 'Nueva reserva',
+        body: `${tenant.first_name} ${tenant.last_name} (Hab. ${tenant.room_number}) reservó para el ${formatted}.`,
+        read: false,
+        created_at: now,
+      },
+      ...notifications,
+    ]
+
     return { data: newReservation, error: null }
   },
 
@@ -263,6 +311,26 @@ export const mockDb = {
       return { data: null, error: { code: '42501', message: 'No tienes permiso para eliminar este reporte.' } }
     }
     lostFoundReports = lostFoundReports.filter((r) => r.id !== id)
+    return { data: null, error: null }
+  },
+
+  async getNotifications(isOwner: boolean): Promise<MockResult<AppNotification[]>> {
+    const recipient = isOwner ? OWNER_RECIPIENT : DEMO_TENANT_ID
+    const list = notifications
+      .filter((n) => n.recipientId === recipient)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .map(({ recipientId: _recipientId, ...n }) => n)
+    return { data: list, error: null }
+  },
+
+  async markNotificationRead(id: string, _isOwner: boolean): Promise<MockResult<null>> {
+    notifications = notifications.map((n) => (n.id === id ? { ...n, read: true } : n))
+    return { data: null, error: null }
+  },
+
+  async markAllNotificationsRead(isOwner: boolean): Promise<MockResult<null>> {
+    const recipient = isOwner ? OWNER_RECIPIENT : DEMO_TENANT_ID
+    notifications = notifications.map((n) => (n.recipientId === recipient ? { ...n, read: true } : n))
     return { data: null, error: null }
   },
 }

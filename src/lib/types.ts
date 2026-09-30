@@ -49,6 +49,14 @@ export interface LostFoundReport {
   phone: string
 }
 
+export interface AppNotification {
+  id: string
+  title: string
+  body: string
+  read: boolean
+  created_at: string
+}
+
 export interface PostgrestLikeError {
   message: string
   code: string

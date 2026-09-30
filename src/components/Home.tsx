@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Bell, ChevronRight, Clock3 } from 'lucide-react'
-import { fetchMyReservations } from '@/lib/db'
+import { fetchMyReservations, fetchNotifications, markAllNotificationsRead, markNotificationRead } from '@/lib/db'
 import { formatShortDateTime, formatShortTime } from '@/lib/dateUtils'
+import { classifyReservationError } from '@/lib/errors'
 import { FLOOR_LABEL } from '@/lib/rooms'
-import type { Profile, Reservation } from '@/lib/types'
+import type { AppNotification, Profile, Reservation } from '@/lib/types'
 import type { AppTab } from './BottomNavigation'
+import { NotificationsPanel } from './NotificationsPanel'
 import { useToast, ToastView } from './Toast'
 
 function initialsOf(firstName: string, lastName: string): string {
@@ -13,11 +15,36 @@ function initialsOf(firstName: string, lastName: string): string {
 
 export function Home({ userId, profile, onNavigate }: { userId: string; profile: Profile; onNavigate: (tab: AppTab) => void }) {
   const [nextReservation, setNextReservation] = useState<Reservation | null>(null)
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const [showNotifications, setShowNotifications] = useState(false)
   const { toast, showToast, dismissToast } = useToast()
 
   useEffect(() => {
     fetchMyReservations(userId).then(({ data }) => setNextReservation(data?.[0] ?? null))
   }, [userId])
+
+  const loadNotifications = useCallback(() => {
+    fetchNotifications(userId, profile.is_owner).then(({ data, error }) => {
+      if (error) showToast(classifyReservationError(error), 'error')
+      setNotifications(data ?? [])
+    })
+  }, [userId, profile.is_owner, showToast])
+
+  useEffect(() => {
+    loadNotifications()
+  }, [loadNotifications])
+
+  const unreadCount = notifications.filter((n) => !n.read).length
+
+  async function handleMarkRead(id: string) {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+    await markNotificationRead(id, profile.is_owner)
+  }
+
+  async function handleMarkAllRead() {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+    await markAllNotificationsRead(userId, profile.is_owner)
+  }
 
   return (
     <div className="mx-auto max-w-lg space-y-5 px-4 pt-5 pb-28">
@@ -35,11 +62,16 @@ export function Home({ userId, profile, onNavigate }: { userId: string; profile:
         </div>
         <button
           type="button"
-          onClick={() => showToast('No tenés notificaciones nuevas.', 'info')}
-          className="flex size-10 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm shadow-slate-900/5"
+          onClick={() => setShowNotifications(true)}
+          className="relative flex size-10 items-center justify-center rounded-full bg-white text-slate-500 shadow-sm shadow-slate-900/5"
           aria-label="Notificaciones"
         >
           <Bell className="size-5" strokeWidth={2} />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
         </button>
       </div>
 
@@ -84,6 +116,15 @@ export function Home({ userId, profile, onNavigate }: { userId: string; profile:
         </div>
         <ChevronRight className="size-5 text-slate-300" strokeWidth={2.2} />
       </button>
+
+      {showNotifications && (
+        <NotificationsPanel
+          notifications={notifications}
+          onClose={() => setShowNotifications(false)}
+          onMarkRead={handleMarkRead}
+          onMarkAllRead={handleMarkAllRead}
+        />
+      )}
 
       <ToastView toast={toast} onDismiss={dismissToast} />
     </div>

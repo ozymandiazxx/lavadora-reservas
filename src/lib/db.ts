@@ -2,6 +2,7 @@ import { isDemoMode, supabase } from './supabase'
 import { DEMO_TENANT_ID, mockDb } from './mockSupabase'
 import { nowLocalDateTime, weekDates } from './dateUtils'
 import type {
+  AppNotification,
   LostFoundReport,
   LostFoundType,
   OccupiedRange,
@@ -168,5 +169,28 @@ export async function setLostFoundResolved(
 export async function deleteLostFoundReport(id: string, actorId: string, isOwner: boolean): Promise<DbResult<null>> {
   if (isDemoMode) return mockDb.deleteLostFoundReport(id, actorId, isOwner)
   const { error } = await supabase!.from('lost_found_reports').delete().eq('id', id)
+  return { data: null, error: toDbError(error) }
+}
+
+export async function fetchNotifications(userId: string, isOwner: boolean): Promise<DbResult<AppNotification[]>> {
+  if (isDemoMode) return mockDb.getNotifications(isOwner)
+  const { data, error } = await supabase!
+    .from('notifications')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50)
+  return { data: data as AppNotification[] | null, error: toDbError(error) }
+}
+
+export async function markNotificationRead(id: string, isOwner: boolean): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.markNotificationRead(id, isOwner)
+  const { error } = await supabase!.from('notifications').update({ read: true }).eq('id', id)
+  return { data: null, error: toDbError(error) }
+}
+
+export async function markAllNotificationsRead(userId: string, isOwner: boolean): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.markAllNotificationsRead(isOwner)
+  const { error } = await supabase!.from('notifications').update({ read: true }).eq('user_id', userId).eq('read', false)
   return { data: null, error: toDbError(error) }
 }

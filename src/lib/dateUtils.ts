@@ -104,6 +104,20 @@ export function formatShortDateTime(localDateTime: string): string {
   return `${day}/${month} ${hh}:${mm}`
 }
 
+/**
+ * Formato corto para un instante real con zona horaria (ej. `created_at` de
+ * notificaciones, timestamptz): a diferencia de `formatShortDateTime`, acá sí
+ * hay que dejar que JS convierta de UTC a la hora local del navegador.
+ */
+export function formatShortInstant(isoDateTime: string): string {
+  const date = new Date(isoDateTime)
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  return `${day}/${month} ${hh}:${mm}`
+}
+
 /** Formato corto de solo hora: "23:30". */
 export function formatShortTime(localDateTime: string): string {
   const date = parseLocalDateTime(localDateTime)
