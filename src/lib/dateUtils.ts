@@ -135,3 +135,23 @@ export function weekdayShortLabel(dateStr: string): string {
   const date = new Date(y, m - 1, d)
   return `${WEEKDAY_SHORT[date.getDay()]} ${d}`
 }
+
+/** Primer y último día del mes al que pertenece `dateStr` (YYYY-MM-DD). */
+export function monthRange(dateStr: string): { start: string; end: string } {
+  const [y, m] = dateStr.split('-').map(Number)
+  const start = `${y}-${String(m).padStart(2, '0')}-01`
+  const lastDay = new Date(y, m, 0).getDate()
+  const end = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  return { start, end }
+}
+
+/** Minutos transcurridos entre dos timestamps locales. */
+export function diffMinutes(startsAt: string, endsAt: string): number {
+  return (parseLocalDateTime(endsAt).getTime() - parseLocalDateTime(startsAt).getTime()) / 60000
+}
+
+/** Fecha en formato DD/MM/YYYY para mostrar o exportar. */
+export function formatDateEs(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-')
+  return `${d}/${m}/${y}`
+}

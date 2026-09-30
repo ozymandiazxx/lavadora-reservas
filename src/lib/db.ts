@@ -1,6 +1,6 @@
 import { isDemoMode, supabase } from './supabase'
 import { DEMO_TENANT_ID, mockDb } from './mockSupabase'
-import { isoWeekRange, nowLocalDateTime, weekDates } from './dateUtils'
+import { nowLocalDateTime, weekDates } from './dateUtils'
 import type {
   LostFoundReport,
   LostFoundType,
@@ -77,15 +77,14 @@ export async function cancelReservation(id: string, tenantId: string, isOwner: b
   return { data: null, error: toDbError(error) }
 }
 
-/** Trae las reservas de una semana ISO (lunes `weekStart`) con datos del inquilino. */
-export async function fetchOwnerReservations(weekStart: string): Promise<DbResult<ReservationWithDetails[]>> {
-  const { end } = isoWeekRange(weekStart)
-  if (isDemoMode) return mockDb.getOwnerReservations(weekStart, end)
+/** Trae las reservas entre `start` y `end` (fechas YYYY-MM-DD, inclusive) con datos del inquilino. */
+export async function fetchOwnerReservations(start: string, end: string): Promise<DbResult<ReservationWithDetails[]>> {
+  if (isDemoMode) return mockDb.getOwnerReservations(start, end)
 
   const { data: rows, error } = await supabase!
     .from('reservations')
     .select('*')
-    .gte('starts_at', `${weekStart}T00:00:00`)
+    .gte('starts_at', `${start}T00:00:00`)
     .lt('starts_at', `${end}T23:59:59.999`)
     .order('starts_at')
   if (error) return { data: null, error: toDbError(error) }
