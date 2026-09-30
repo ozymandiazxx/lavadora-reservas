@@ -54,6 +54,13 @@ export async function fetchProfile(userId: string): Promise<DbResult<Profile>> {
   return { data: data as Profile | null, error: toDbError(error) }
 }
 
+/** Todos los perfiles registrados (solo visible para la dueña, vía RLS). */
+export async function fetchAllProfiles(): Promise<DbResult<Profile[]>> {
+  if (isDemoMode) return mockDb.getAllProfiles()
+  const { data, error } = await supabase!.from('profiles').select('*').order('floor').order('room_number')
+  return { data: data as Profile[] | null, error: toDbError(error) }
+}
+
 export async function fetchMyReservations(tenantId: string): Promise<DbResult<Reservation[]>> {
   if (isDemoMode) return mockDb.getMyReservations(tenantId)
   const { data, error } = await supabase!

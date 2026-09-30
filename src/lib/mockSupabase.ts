@@ -131,6 +131,14 @@ export const mockDb = {
     return { ...DEMO_PROFILE, is_owner: demoIsOwner }
   },
 
+  async getAllProfiles(): Promise<MockResult<Profile[]>> {
+    const list: Profile[] = [
+      { ...DEMO_PROFILE, is_owner: demoIsOwner },
+      ...Object.entries(NEIGHBOR_PROFILES).map(([id, p]) => ({ id, ...p, is_owner: false })),
+    ]
+    return { data: list, error: null }
+  },
+
   setDemoOwner(value: boolean) {
     demoIsOwner = value
   },
