@@ -90,25 +90,19 @@ export function LaundryBooking({ userId }: { userId: string }) {
     setGridRefreshKey((k) => k + 1)
   }
 
-  function handleSelectGridSlot(date: string, hour: number) {
+  function handleSelectAgendaDate(date: string) {
     setSelectedDate(date)
-    setSelectedTime(`${String(hour).padStart(2, '0')}:00`)
-    setShowWeekGrid(false)
   }
 
   const sortedRanges = useMemo(() => [...occupiedRanges].sort((a, b) => a.starts_at.localeCompare(b.starts_at)), [occupiedRanges])
 
   return (
     <div className="mx-auto max-w-lg space-y-5 px-4 pt-5 pb-28">
-      <div className="overflow-hidden rounded-3xl bg-gradient-to-br from-teal-600 to-teal-700 p-5 text-white shadow-lg shadow-teal-900/20">
-        <div className="flex items-center gap-3">
-          <div className="flex size-11 items-center justify-center rounded-2xl bg-white/15">
-            <WashingMachine className="size-6" strokeWidth={2} />
-          </div>
-          <div>
-            <h2 className="text-lg font-extrabold">Reserva de lavadora</h2>
-            <p className="text-sm text-teal-50/90">Elegí un horario disponible</p>
-          </div>
+      <div className="flex items-center gap-3 overflow-hidden rounded-3xl bg-gradient-to-br from-teal-600 to-teal-700 p-4 pr-5 text-white shadow-lg shadow-teal-900/20">
+        <img src="/illustrations/schedule.webp" alt="" className="size-16 shrink-0" width={640} height={640} />
+        <div>
+          <h2 className="text-lg font-extrabold">Reserva de lavadora</h2>
+          <p className="text-sm text-teal-50/90">Elegí un horario disponible</p>
         </div>
       </div>
 
@@ -158,8 +152,9 @@ export function LaundryBooking({ userId }: { userId: string }) {
       <div>
         <h3 className="mb-2 px-1 text-sm font-bold text-slate-700">Horarios ocupados este día</h3>
         {sortedRanges.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 px-4 py-6 text-center text-sm text-slate-400">
-            Sin reservas ese día — ¡está todo libre!
+          <div className="flex flex-col items-center rounded-2xl border border-dashed border-slate-200 bg-white/60 px-4 py-4 text-center">
+            <img src="/illustrations/basket-check.webp" alt="" className="size-20" width={640} height={640} />
+            <p className="mt-1 text-sm font-semibold text-slate-400">Sin reservas ese día — ¡está todo libre!</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -195,7 +190,7 @@ export function LaundryBooking({ userId }: { userId: string }) {
         <ChevronDown className={`size-4 text-slate-400 transition ${showWeekGrid ? 'rotate-180' : ''}`} strokeWidth={2.2} />
       </button>
       {showWeekGrid && (
-        <WeekScheduleGrid selectedDate={selectedDate} onSelectSlot={handleSelectGridSlot} refreshKey={gridRefreshKey} />
+        <WeekScheduleGrid selectedDate={selectedDate} onSelectDate={handleSelectAgendaDate} refreshKey={gridRefreshKey} />
       )}
 
       {myReservations.length > 0 && (

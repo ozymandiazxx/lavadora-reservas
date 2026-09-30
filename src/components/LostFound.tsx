@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
-import { ImagePlus, MapPin, Package, PackageSearch, Phone, RotateCcw, Trash2, X } from 'lucide-react'
+import { ImagePlus, MapPin, Package, Phone, RotateCcw, Trash2, X } from 'lucide-react'
 import { createLostFoundReport, deleteLostFoundReport, fetchLostFoundBoard, setLostFoundResolved } from '@/lib/db'
 import { classifyReservationError } from '@/lib/errors'
 import type { LostFoundReport, LostFoundType } from '@/lib/types'
@@ -90,15 +90,11 @@ export function LostFound({ userId, isOwner }: { userId: string; isOwner: boolea
 
   return (
     <div className="mx-auto max-w-lg space-y-5 px-4 pt-5 pb-28">
-      <div>
-        <div className="flex items-center gap-3">
-          <div className="flex size-11 items-center justify-center rounded-2xl bg-amber-100">
-            <PackageSearch className="size-6 text-amber-600" strokeWidth={2} />
-          </div>
-          <div>
-            <h2 className="text-lg font-extrabold text-slate-900">Objetos perdidos</h2>
-            <p className="text-sm text-slate-500">Ayudemos a que las cosas vuelvan a su dueño</p>
-          </div>
+      <div className="flex items-center gap-3 overflow-hidden rounded-3xl bg-gradient-to-br from-amber-50 to-white p-4">
+        <img src="/illustrations/lost-found.webp" alt="" className="size-20 shrink-0" width={640} height={640} />
+        <div>
+          <h2 className="text-lg font-extrabold text-slate-900">Objetos perdidos</h2>
+          <p className="text-sm text-slate-500">Ayudemos a que las cosas vuelvan a su dueño</p>
         </div>
       </div>
 
