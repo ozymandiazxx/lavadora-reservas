@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { AlertCircle, CheckCircle2, WashingMachine } from 'lucide-react'
-import { roomNumberToLoginEmail, translateAuthError } from '@/lib/auth'
+import { loginEmailFor, translateAuthError } from '@/lib/auth'
 import { FLOOR_LABEL, FLOORS, roomTypeForFloor } from '@/lib/rooms'
 import { supabase } from '@/lib/supabase'
 import type { Floor } from '@/lib/types'
@@ -27,7 +27,7 @@ export function Auth() {
     setInfo(null)
     setLoading(true)
     try {
-      const email = roomNumberToLoginEmail(roomNumber)
+      const email = loginEmailFor(floor, roomNumber)
       if (mode === 'login') {
         const { error } = await supabase!.auth.signInWithPassword({ email, password })
         if (error) setError(translateAuthError(error.message))
@@ -68,20 +68,43 @@ export function Auth() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <label htmlFor="room-number" className={labelClass}>
-              N.º de habitación
-            </label>
-            <input
-              id="room-number"
-              type="text"
-              required
-              value={roomNumber}
-              onChange={(e) => setRoomNumber(e.target.value)}
-              placeholder="Ej: 5B"
-              className={inputClass}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="floor" className={labelClass}>
+                Piso
+              </label>
+              <select
+                id="floor"
+                required
+                value={floor}
+                onChange={(e) => setFloor(e.target.value as Floor)}
+                className={inputClass}
+              >
+                {FLOORS.map((f) => (
+                  <option key={f} value={f}>
+                    {FLOOR_LABEL[f]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="room-number" className={labelClass}>
+                N.º de habitación
+              </label>
+              <input
+                id="room-number"
+                type="text"
+                required
+                value={roomNumber}
+                onChange={(e) => setRoomNumber(e.target.value)}
+                placeholder="Ej: 5"
+                className={inputClass}
+              />
+            </div>
           </div>
+          <p className="-mt-1 text-xs text-slate-400">
+            El número de habitación se repite entre pisos, por eso pedimos los dos para identificarte.
+          </p>
 
           {mode === 'register' && (
             <>
@@ -112,24 +135,6 @@ export function Auth() {
                     className={inputClass}
                   />
                 </div>
-              </div>
-              <div>
-                <label htmlFor="floor" className={labelClass}>
-                  Piso
-                </label>
-                <select
-                  id="floor"
-                  required
-                  value={floor}
-                  onChange={(e) => setFloor(e.target.value as Floor)}
-                  className={inputClass}
-                >
-                  {FLOORS.map((f) => (
-                    <option key={f} value={f}>
-                      {FLOOR_LABEL[f]}
-                    </option>
-                  ))}
-                </select>
               </div>
               <div>
                 <label htmlFor="phone" className={labelClass}>
