@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Bell, ChevronRight, Clock3 } from 'lucide-react'
-import { fetchMyReservations, fetchNotifications, markAllNotificationsRead, markNotificationRead } from '@/lib/db'
-import { formatShortDateTime, formatShortTime } from '@/lib/dateUtils'
+import { Bell, ChevronRight, Clock3, Wallet } from 'lucide-react'
+import { fetchMyReservations, fetchNotifications, fetchRentData, markAllNotificationsRead, markNotificationRead } from '@/lib/db'
+import { formatShortDateTime, formatShortTime, todayLocalISO } from '@/lib/dateUtils'
+import { formatMoney, summarizeAll } from '@/lib/rent'
 import { classifyReservationError } from '@/lib/errors'
 import { FLOOR_LABEL } from '@/lib/rooms'
 import type { AppNotification, Profile, Reservation } from '@/lib/types'
@@ -17,11 +18,24 @@ export function Home({ userId, profile, onNavigate }: { userId: string; profile:
   const [nextReservation, setNextReservation] = useState<Reservation | null>(null)
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
+  const [rentDue, setRentDue] = useState<{ owed: number; overdue: number } | null>(null)
   const { toast, showToast, dismissToast } = useToast()
 
   useEffect(() => {
     fetchMyReservations(userId).then(({ data }) => setNextReservation(data?.[0] ?? null))
   }, [userId])
+
+  useEffect(() => {
+    if (profile.is_owner) return
+    fetchRentData(userId).then(({ data }) => {
+      if (!data) return
+      const summaries = summarizeAll(data.charges, data.leases, data.payments, todayLocalISO())
+      setRentDue({
+        owed: summaries.reduce((s, c) => s + c.balance, 0),
+        overdue: summaries.filter((c) => c.status === 'vencido').length,
+      })
+    })
+  }, [userId, profile.is_owner])
 
   const loadNotifications = useCallback(() => {
     fetchNotifications(userId, profile.is_owner).then(({ data, error }) => {
@@ -89,6 +103,23 @@ export function Home({ userId, profile, onNavigate }: { userId: string; profile:
           <ChevronRight className="size-5 text-teal-50/80" strokeWidth={2.2} />
         </div>
       </button>
+
+      {rentDue && rentDue.owed > 0 && (
+        <button
+          type="button"
+          onClick={() => onNavigate('rent')}
+          className="flex w-full items-center gap-3 rounded-2xl bg-white p-4 text-left shadow-sm shadow-slate-900/5 transition active:scale-[0.99]"
+        >
+          <div className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${rentDue.overdue > 0 ? 'bg-rose-50' : 'bg-amber-50'}`}>
+            <Wallet className={`size-5 ${rentDue.overdue > 0 ? 'text-rose-600' : 'text-amber-600'}`} strokeWidth={2.2} />
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-semibold text-slate-400">{rentDue.overdue > 0 ? 'Tienes pagos vencidos' : 'Pagos pendientes'}</p>
+            <p className="font-bold text-slate-800">Debes {formatMoney(rentDue.owed)}</p>
+          </div>
+          <ChevronRight className="size-5 text-slate-300" strokeWidth={2.2} />
+        </button>
+      )}
 
       {nextReservation && (
         <div className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">

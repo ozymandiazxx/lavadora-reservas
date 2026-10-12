@@ -3,6 +3,12 @@ import { DEMO_TENANT_ID, mockDb } from './mockSupabase'
 import { nowLocalDateTime, weekDates } from './dateUtils'
 import type {
   AppNotification,
+  Charge,
+  Lease,
+  NewCharge,
+  NewPayment,
+  Payment,
+  PaymentStatus,
   LostFoundReport,
   LostFoundType,
   OccupiedRange,
@@ -192,5 +198,131 @@ export async function markNotificationRead(id: string, isOwner: boolean): Promis
 export async function markAllNotificationsRead(userId: string, isOwner: boolean): Promise<DbResult<null>> {
   if (isDemoMode) return mockDb.markAllNotificationsRead(isOwner)
   const { error } = await supabase!.from('notifications').update({ read: true }).eq('user_id', userId).eq('read', false)
+  return { data: null, error: toDbError(error) }
+}
+
+// ---------- Arriendos ----------
+
+export interface RentData {
+  leases: Lease[]
+  charges: Charge[]
+  payments: Payment[]
+}
+
+/** Contratos, cobros y pagos. Con `tenantId` solo los de ese inquilino; con null, todos (dueña). */
+export async function fetchRentData(tenantId: string | null): Promise<DbResult<RentData>> {
+  if (isDemoMode) return mockDb.getRentData(tenantId)
+
+  const table = (name: string) => {
+    const query = supabase!.from(name).select('*')
+    return tenantId ? query.eq('tenant_id', tenantId) : query
+  }
+  const [leases, charges, payments] = await Promise.all([
+    table('leases'),
+    table('charges').order('period', { ascending: false }).order('created_at'),
+    table('payments').order('created_at'),
+  ])
+  const error = leases.error ?? charges.error ?? payments.error
+  if (error) return { data: null, error: toDbError(error) }
+  return {
+    data: {
+      leases: leases.data as Lease[],
+      charges: charges.data as Charge[],
+      payments: payments.data as Payment[],
+    },
+    error: null,
+  }
+}
+
+export async function upsertLease(lease: Lease): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.upsertLease(lease)
+  const { error } = await supabase!.from('leases').upsert({ ...lease, updated_at: new Date().toISOString() })
+  return { data: null, error: toDbError(error) }
+}
+
+export async function createCharges(list: NewCharge[]): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.createCharges(list)
+  const { error } = await supabase!.from('charges').insert(list)
+  return { data: null, error: toDbError(error) }
+}
+
+export async function deleteCharge(id: string): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.deleteCharge(id)
+  const { error } = await supabase!.from('charges').delete().eq('id', id)
+  return { data: null, error: toDbError(error) }
+}
+
+/**
+ * El inquilino reporta un pago (queda "pendiente" hasta que la dueña lo apruebe).
+ * La dueña (`asOwner`) lo registra directamente como aprobado.
+ */
+export async function createPayment(payment: NewPayment, asOwner: boolean): Promise<DbResult<null>> {
+  const { receipt, ...fields } = payment
+  const status: PaymentStatus = asOwner ? 'aprobado' : 'pendiente'
+
+  if (isDemoMode) {
+    return mockDb.createPayment(fields, receipt ? URL.createObjectURL(receipt) : null, status)
+  }
+
+  let receiptPath: string | null = null
+  if (receipt) {
+    // La carpeta es el id de quien sube: la policy de storage solo deja escribir en la propia.
+    receiptPath = `${payment.tenant_id}/${crypto.randomUUID()}-${receipt.name.replace(/[^\w.-]/g, '_')}`
+    const { error: uploadError } = await supabase!.storage.from('receipts').upload(receiptPath, receipt)
+    if (uploadError) return { data: null, error: toDbError(uploadError) }
+  }
+
+  const { error } = await supabase!.from('payments').insert({ ...fields, receipt_path: receiptPath, status })
+  return { data: null, error: toDbError(error) }
+}
+
+export async function reviewPayment(id: string, status: PaymentStatus, note: string | null): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.reviewPayment(id, status, note)
+  const { error } = await supabase!.from('payments').update({ status, review_note: note }).eq('id', id)
+  return { data: null, error: toDbError(error) }
+}
+
+export async function deletePayment(id: string): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.deletePayment(id)
+  const { error } = await supabase!.from('payments').delete().eq('id', id)
+  return { data: null, error: toDbError(error) }
+}
+
+/** Genera el arriendo del mes y manda recordatorios pendientes (también corre a diario vía pg_cron). */
+export async function runRentJob(): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.runRentJob()
+  const { error } = await supabase!.rpc('rent_daily_job')
+  return { data: null, error: toDbError(error) }
+}
+
+export async function remindTenant(chargeId: string): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.remindTenant(chargeId)
+  const { error } = await supabase!.rpc('remind_tenant', { p_charge_id: chargeId })
+  return { data: null, error: toDbError(error) }
+}
+
+/** Crea (o recalcula) el cobro de lavadora del mes: usos × precio. Devuelve cuántos inquilinos tocó. */
+export async function addLaundryCharges(period: string, price: number): Promise<DbResult<number>> {
+  if (isDemoMode) return mockDb.addLaundryCharges(period, price)
+  const { data, error } = await supabase!.rpc('add_laundry_charges', { p_period: period, p_price: price })
+  return { data: data as number | null, error: toDbError(error) }
+}
+
+/** URL temporal para ver un comprobante (el bucket es privado). */
+export async function getReceiptUrl(path: string): Promise<string | null> {
+  if (isDemoMode) return path
+  const { data } = await supabase!.storage.from('receipts').createSignedUrl(path, 300)
+  return data?.signedUrl ?? null
+}
+
+export async function fetchPaymentInstructions(): Promise<DbResult<string>> {
+  if (isDemoMode) return mockDb.getPaymentInstructions()
+  const { data, error } = await supabase!.from('rent_settings').select('payment_instructions').single()
+  return { data: (data?.payment_instructions as string | undefined) ?? '', error: toDbError(error) }
+}
+
+export async function savePaymentInstructions(text: string): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.savePaymentInstructions(text)
+  const { error } = await supabase!.from('rent_settings').update({ payment_instructions: text }).eq('singleton', true)
   return { data: null, error: toDbError(error) }
 }

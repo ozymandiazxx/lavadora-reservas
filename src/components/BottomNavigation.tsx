@@ -1,6 +1,6 @@
-import { Home, PackageSearch, ShieldCheck, User, WashingMachine } from 'lucide-react'
+import { Home, PackageSearch, ShieldCheck, User, Wallet, WashingMachine } from 'lucide-react'
 
-export type AppTab = 'home' | 'booking' | 'lostfound' | 'owner' | 'profile'
+export type AppTab = 'home' | 'booking' | 'lostfound' | 'owner' | 'rent' | 'profile'
 
 interface BottomNavigationProps {
   tab: AppTab
@@ -8,24 +8,28 @@ interface BottomNavigationProps {
   showOwnerTab: boolean
 }
 
-const BASE_ITEMS: Array<{ id: AppTab; label: string; icon: typeof Home }> = [
-  { id: 'home', label: 'Inicio', icon: Home },
-  { id: 'booking', label: 'Reservar', icon: WashingMachine },
-  { id: 'lostfound', label: 'Objetos', icon: PackageSearch },
-  { id: 'profile', label: 'Perfil', icon: User },
-]
+type NavItem = { id: AppTab; label: string; icon: typeof Home }
+
+const HOME: NavItem = { id: 'home', label: 'Inicio', icon: Home }
+const BOOKING: NavItem = { id: 'booking', label: 'Reservar', icon: WashingMachine }
+const RENT: NavItem = { id: 'rent', label: 'Pagos', icon: Wallet }
+const LOST_FOUND: NavItem = { id: 'lostfound', label: 'Objetos', icon: PackageSearch }
+const OWNER: NavItem = { id: 'owner', label: 'Panel', icon: ShieldCheck }
+const PROFILE: NavItem = { id: 'profile', label: 'Perfil', icon: User }
+
+// La dueña gestiona los cobros desde su Panel; los inquilinos tienen su pestaña Pagos.
+const TENANT_ITEMS = [HOME, BOOKING, RENT, LOST_FOUND, PROFILE]
+const OWNER_ITEMS = [HOME, BOOKING, LOST_FOUND, OWNER, PROFILE]
 
 export function BottomNavigation({ tab, onChange, showOwnerTab }: BottomNavigationProps) {
-  const items = showOwnerTab
-    ? [...BASE_ITEMS.slice(0, 3), { id: 'owner' as const, label: 'Panel', icon: ShieldCheck }, BASE_ITEMS[3]]
-    : BASE_ITEMS
+  const items = showOwnerTab ? OWNER_ITEMS : TENANT_ITEMS
 
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <div className={`mx-auto grid max-w-lg ${items.length === 5 ? 'grid-cols-5' : 'grid-cols-4'}`}>
+      <div className="mx-auto grid max-w-lg grid-cols-5">
         {items.map(({ id, label, icon: Icon }) => {
           const active = tab === id
           return (

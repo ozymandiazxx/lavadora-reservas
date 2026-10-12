@@ -57,6 +57,68 @@ export interface AppNotification {
   created_at: string
 }
 
+export type ChargeKind = 'arriendo' | 'lavadora' | 'servicio' | 'otro'
+
+export type PaymentMethod = 'transferencia' | 'efectivo'
+
+export type PaymentStatus = 'pendiente' | 'aprobado' | 'rechazado'
+
+export interface Lease {
+  tenant_id: string
+  monthly_rent: number
+  /** Día del mes (1-28) en que vence el arriendo. */
+  due_day: number
+  late_fee_per_day: number
+  active: boolean
+}
+
+export interface Charge {
+  id: string
+  tenant_id: string
+  /** Primer día del mes al que pertenece el cobro, "YYYY-MM-01". */
+  period: string
+  kind: ChargeKind
+  concept: string
+  amount: number
+  /** "YYYY-MM-DD". */
+  due_date: string
+  created_at: string
+}
+
+export interface Payment {
+  id: string
+  charge_id: string
+  tenant_id: string
+  amount: number
+  method: PaymentMethod
+  /** "YYYY-MM-DD". */
+  paid_on: string
+  receipt_path: string | null
+  note: string | null
+  status: PaymentStatus
+  review_note: string | null
+  created_at: string
+}
+
+export interface NewPayment {
+  charge_id: string
+  tenant_id: string
+  amount: number
+  method: PaymentMethod
+  paid_on: string
+  note: string | null
+  receipt: File | null
+}
+
+export interface NewCharge {
+  tenant_id: string
+  period: string
+  kind: ChargeKind
+  concept: string
+  amount: number
+  due_date: string
+}
+
 export interface PostgrestLikeError {
   message: string
   code: string

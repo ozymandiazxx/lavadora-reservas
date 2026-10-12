@@ -26,3 +26,12 @@ export function classifyReservationError(error: PostgrestLikeError): string {
 
   return 'Ocurrió un error inesperado. Intenta nuevamente.'
 }
+
+/** Errores de la sección de arriendos. */
+export function classifyRentError(error: PostgrestLikeError): string {
+  if (error.code === '23505') return 'Ese cobro ya existe para el mes elegido.'
+  if (error.code === '23503') return 'No se puede eliminar: tiene pagos registrados.'
+  if (error.code === '42501') return 'No tienes permiso para realizar esta acción.'
+  if (error.message?.includes('mayor a 0')) return error.message
+  return 'Ocurrió un error inesperado. Intenta nuevamente.'
+}

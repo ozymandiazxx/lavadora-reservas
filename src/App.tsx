@@ -8,6 +8,7 @@ import { LaundryBooking } from '@/components/LaundryBooking'
 import { LostFound } from '@/components/LostFound'
 import { OwnerView } from '@/components/OwnerView'
 import { Profile } from '@/components/Profile'
+import { RentTenant } from '@/components/RentTenant'
 import { DEMO_TENANT_ID, fetchProfile, isDemoMode, setDemoOwner } from '@/lib/db'
 import { supabase } from '@/lib/supabase'
 import type { Profile as ProfileType } from '@/lib/types'
@@ -67,6 +68,8 @@ function App() {
           <OwnerView />
         ) : tab === 'lostfound' ? (
           <LostFound userId={userId} isOwner={profile.is_owner} />
+        ) : tab === 'rent' && !profile.is_owner ? (
+          <RentTenant userId={userId} />
         ) : tab === 'profile' ? (
           <Profile profile={profile} onNavigate={setTab} />
         ) : tab === 'booking' ? (

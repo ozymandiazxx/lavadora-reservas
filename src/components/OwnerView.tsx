@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Clock3, Download, Phone, ShieldCheck, Users } from 'lucide-react'
+import { ChevronDown, Clock3, Download, Phone, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { fetchOwnerReservations } from '@/lib/db'
 import {
   formatShortDateTime,
@@ -12,6 +12,7 @@ import {
 } from '@/lib/dateUtils'
 import { FLOOR_LABEL } from '@/lib/rooms'
 import type { ReservationWithDetails } from '@/lib/types'
+import { RentOwner } from './RentOwner'
 import { UsageDashboard } from './UsageDashboard'
 import { UsersPanel } from './UsersPanel'
 
@@ -30,7 +31,7 @@ function initialsOf(firstName: string, lastName: string): string {
 }
 
 type Period = 'week' | 'month' | '3months' | 'custom'
-type Section = 'reservas' | 'usuarios'
+type Section = 'reservas' | 'arriendos' | 'usuarios'
 
 const PERIOD_LABEL: Record<Period, string> = {
   week: 'Esta semana',
@@ -91,11 +92,11 @@ export function OwnerView() {
         </div>
         <div>
           <h2 className="text-lg font-extrabold">Panel de la dueña</h2>
-          <p className="text-sm text-slate-300">Reservas, uso y directorio de inquilinos</p>
+          <p className="text-sm text-slate-300">Reservas, arriendos y directorio de inquilinos</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-1.5 shadow-sm shadow-slate-900/5">
+      <div className="grid grid-cols-3 gap-2 rounded-2xl bg-white p-1.5 shadow-sm shadow-slate-900/5">
         <button
           type="button"
           onClick={() => setSection('reservas')}
@@ -105,6 +106,16 @@ export function OwnerView() {
         >
           <Clock3 className="size-4" strokeWidth={2.2} />
           Reservas
+        </button>
+        <button
+          type="button"
+          onClick={() => setSection('arriendos')}
+          className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold transition ${
+            section === 'arriendos' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-500'
+          }`}
+        >
+          <Wallet className="size-4" strokeWidth={2.2} />
+          Arriendos
         </button>
         <button
           type="button"
@@ -120,6 +131,8 @@ export function OwnerView() {
 
       {section === 'usuarios' ? (
         <UsersPanel />
+      ) : section === 'arriendos' ? (
+        <RentOwner />
       ) : (
         <>
           <div className="rounded-2xl bg-white p-3 shadow-sm shadow-slate-900/5">
