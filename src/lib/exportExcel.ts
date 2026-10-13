@@ -1,7 +1,8 @@
 import ExcelJS from 'exceljs'
 import { diffMinutes, formatDateEs, formatShortTime, todayLocalISO } from './dateUtils'
 import { FLOOR_LABEL } from './rooms'
-import type { ReservationWithDetails } from './types'
+import { KIND_LABEL, STATUS_LABEL, periodLabel, summarizeAll, type ChargeStatus } from './rent'
+import type { Charge, Lease, Payment, Profile, ReservationWithDetails } from './types'
 
 const BRAND = 'FF0F766E' // teal-700
 const BRAND_LIGHT = 'FFCCFBF1' // teal-100
@@ -225,14 +226,218 @@ export async function exportReservationsExcel(reservations: ReservationWithDetai
   autoFitColumns(floorSheet, floorHeaderRowNum)
   autoFitColumns(roomSheet, roomHeaderRowNum)
 
+  await downloadWorkbook(workbook, `reservas-lavadora_${rangeSlug}.xlsx`)
+}
+
+async function downloadWorkbook(workbook: ExcelJS.Workbook, filename: string) {
   const buffer = await workbook.xlsx.writeBuffer()
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `reservas-lavadora_${rangeSlug}.xlsx`
+  a.download = filename
   document.body.appendChild(a)
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
+}
+
+const MONEY_FORMAT = '"$"#,##0.00'
+
+const STATUS_FILL: Record<ChargeStatus, string> = {
+  pagado: 'FFD1FAE5',
+  por_revisar: 'FFE0F2FE',
+  vencido: 'FFFFE4E6',
+  pendiente: 'FFFEF3C7',
+}
+
+const PAYMENT_STATUS_LABEL: Record<string, string> = { pendiente: 'En revisión', aprobado: 'Aprobado', rechazado: 'Rechazado' }
+const METHOD_LABEL: Record<string, string> = { transferencia: 'Transferencia', efectivo: 'Efectivo' }
+
+function formatMoneyColumns(sheet: ExcelJS.Worksheet, firstRow: number, lastRow: number, cols: number[]) {
+  for (let r = firstRow; r <= lastRow; r++) for (const c of cols) sheet.getRow(r).getCell(c).numFmt = MONEY_FORMAT
+}
+
+export interface RentExportData {
+  period: string
+  profiles: Profile[]
+  leases: Lease[]
+  charges: Charge[]
+  payments: Payment[]
+  today: string
+}
+
+/** Reporte de cobros del mes: resumen, detalle de cobros, pagos recibidos y deuda acumulada por inquilino. */
+export async function exportRentExcel({ period, profiles, leases, charges, payments, today }: RentExportData) {
+  const workbook = new ExcelJS.Workbook()
+  workbook.creator = 'Reserva de lavadora'
+  workbook.created = new Date()
+  workbook.title = 'Reporte de cobros'
+
+  const label = periodLabel(period)
+  const rangeLabel = `Cobros al ${formatDateEs(today)}`
+  const profileById = new Map(profiles.map((p) => [p.id, p]))
+  const who = (id: string) => profileById.get(id)
+  const summaries = summarizeAll(charges, leases, payments, today)
+  const inPeriod = summaries
+    .filter((s) => s.charge.period === period)
+    .sort((a, b) => {
+      const pa = who(a.charge.tenant_id)
+      const pb = who(b.charge.tenant_id)
+      return (pa?.floor ?? '').localeCompare(pb?.floor ?? '') || (pa?.room_number ?? '').localeCompare(pb?.room_number ?? '', undefined, { numeric: true })
+    })
+
+  const sum = (f: (s: (typeof inPeriod)[number]) => number) => Math.round(inPeriod.reduce((t, s) => t + f(s), 0) * 100) / 100
+  const billed = sum((s) => s.total)
+  const collected = sum((s) => s.paid)
+  const pending = sum((s) => s.balance)
+  const fees = sum((s) => s.lateFee)
+  const overdue = inPeriod.filter((s) => s.status === 'vencido').length
+  const accumulated = Math.round(summaries.reduce((t, s) => t + s.balance, 0) * 100) / 100
+
+  // ===================== Hoja 1: Resumen =====================
+  const summary = workbook.addWorksheet('Resumen')
+  addTitleBlock(summary, `Reporte de cobros — ${label}`, label, rangeLabel, 2)
+  const kpis: Array<[string, string | number, boolean]> = [
+    ['Facturado (con multas)', billed, true],
+    ['Cobrado', collected, true],
+    ['Por cobrar del mes', pending, true],
+    ['Multas por atraso', fees, true],
+    ['Cobros vencidos', overdue, false],
+    ['Deuda acumulada (todos los meses)', accumulated, true],
+    ['Porcentaje cobrado', billed > 0 ? `${Math.round((collected / billed) * 100)}%` : '—', false],
+  ]
+  for (const [name, value, money] of kpis) {
+    const row = summary.addRow([name, value])
+    row.getCell(1).font = { bold: true, size: 10, color: { argb: INK } }
+    row.getCell(2).font = { size: 12, bold: true, color: { argb: BRAND } }
+    for (const c of [1, 2]) {
+      row.getCell(c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: BRAND_LIGHT } }
+      row.getCell(c).border = BORDER
+    }
+    row.getCell(2).alignment = { horizontal: 'right' }
+    if (money) row.getCell(2).numFmt = MONEY_FORMAT
+    row.height = 20
+  }
+  summary.getColumn(1).width = 36
+  summary.getColumn(2).width = 20
+  summary.addRow([])
+  const note = summary.addRow(['Ver hojas "Cobros", "Pagos" y "Deuda por inquilino" para el detalle.'])
+  note.getCell(1).font = { italic: true, size: 9, color: { argb: MUTED } }
+  summary.mergeCells(summary.rowCount, 1, summary.rowCount, 2)
+
+  // ===================== Hoja 2: Cobros =====================
+  const sheet = workbook.addWorksheet('Cobros')
+  addTitleBlock(sheet, `Cobros de ${label}`, label, rangeLabel, 12)
+  const headerRow = sheet.rowCount + 1
+  sheet.getRow(headerRow).values = ['Piso', 'Habitación', 'Inquilino', 'Concepto', 'Tipo', 'Vence', 'Monto', 'Multa', 'Total', 'Pagado', 'Saldo', 'Estado']
+  sheet.columns = [
+    { key: 'piso' }, { key: 'hab' }, { key: 'inq' }, { key: 'concepto' }, { key: 'tipo' }, { key: 'vence' },
+    { key: 'monto' }, { key: 'multa' }, { key: 'total' }, { key: 'pagado' }, { key: 'saldo' }, { key: 'estado' },
+  ]
+  for (const s of inPeriod) {
+    const p = who(s.charge.tenant_id)
+    sheet.addRow({
+      piso: p ? FLOOR_LABEL[p.floor] : '—',
+      hab: p?.room_number ?? '—',
+      inq: p ? `${p.first_name} ${p.last_name}` : '—',
+      concepto: s.charge.concept,
+      tipo: KIND_LABEL[s.charge.kind],
+      vence: formatDateEs(s.charge.due_date),
+      monto: s.charge.amount,
+      multa: s.lateFee,
+      total: s.total,
+      pagado: s.paid,
+      saldo: s.balance,
+      estado: STATUS_LABEL[s.status],
+    })
+  }
+  styleHeaderRow(sheet.getRow(headerRow))
+  styleDataRows(sheet, headerRow + 1, sheet.rowCount, [7, 8, 9, 10, 11])
+  formatMoneyColumns(sheet, headerRow + 1, sheet.rowCount, [7, 8, 9, 10, 11])
+  inPeriod.forEach((s, i) => {
+    sheet.getRow(headerRow + 1 + i).getCell(12).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: STATUS_FILL[s.status] } }
+  })
+  if (inPeriod.length > 0) {
+    const totals = sheet.addRow({ concepto: 'TOTAL', monto: sum((s) => s.charge.amount), multa: fees, total: billed, pagado: collected, saldo: pending })
+    totals.eachCell((cell) => {
+      cell.font = { bold: true, size: 10, color: { argb: INK } }
+      cell.border = BORDER
+    })
+    formatMoneyColumns(sheet, totals.number, totals.number, [7, 8, 9, 10, 11])
+  }
+  sheet.views = [{ state: 'frozen', ySplit: headerRow }]
+  sheet.autoFilter = { from: { row: headerRow, column: 1 }, to: { row: headerRow, column: 12 } }
+  autoFitColumns(sheet, headerRow)
+
+  // ===================== Hoja 3: Pagos =====================
+  const periodChargeIds = new Set(inPeriod.map((s) => s.charge.id))
+  const periodPayments = payments
+    .filter((p) => periodChargeIds.has(p.charge_id))
+    .sort((a, b) => a.paid_on.localeCompare(b.paid_on))
+  const chargeById = new Map(charges.map((c) => [c.id, c]))
+  const paySheet = workbook.addWorksheet('Pagos')
+  addTitleBlock(paySheet, `Pagos recibidos — ${label}`, label, rangeLabel, 9)
+  const payHeader = paySheet.rowCount + 1
+  paySheet.getRow(payHeader).values = ['Fecha', 'Piso', 'Habitación', 'Inquilino', 'Concepto', 'Método', 'Monto', 'Estado', 'Nota']
+  paySheet.columns = [
+    { key: 'fecha' }, { key: 'piso' }, { key: 'hab' }, { key: 'inq' }, { key: 'concepto' },
+    { key: 'metodo' }, { key: 'monto' }, { key: 'estado' }, { key: 'nota' },
+  ]
+  for (const pay of periodPayments) {
+    const p = who(pay.tenant_id)
+    paySheet.addRow({
+      fecha: formatDateEs(pay.paid_on),
+      piso: p ? FLOOR_LABEL[p.floor] : '—',
+      hab: p?.room_number ?? '—',
+      inq: p ? `${p.first_name} ${p.last_name}` : '—',
+      concepto: chargeById.get(pay.charge_id)?.concept ?? '—',
+      metodo: METHOD_LABEL[pay.method] ?? pay.method,
+      monto: pay.amount,
+      estado: PAYMENT_STATUS_LABEL[pay.status] ?? pay.status,
+      nota: pay.note ?? '',
+    })
+  }
+  styleHeaderRow(paySheet.getRow(payHeader))
+  styleDataRows(paySheet, payHeader + 1, paySheet.rowCount, [7])
+  formatMoneyColumns(paySheet, payHeader + 1, paySheet.rowCount, [7])
+  paySheet.views = [{ state: 'frozen', ySplit: payHeader }]
+  autoFitColumns(paySheet, payHeader)
+
+  // ===================== Hoja 4: Deuda por inquilino (todos los meses) =====================
+  const debtors = profiles
+    .map((p) => {
+      const open = summaries.filter((s) => s.charge.tenant_id === p.id && s.balance > 0)
+      return {
+        p,
+        count: open.length,
+        balance: Math.round(open.reduce((t, s) => t + s.balance, 0) * 100) / 100,
+        oldest: open.map((s) => s.charge.due_date).sort()[0],
+      }
+    })
+    .filter((d) => d.count > 0)
+    .sort((a, b) => b.balance - a.balance)
+  const debtSheet = workbook.addWorksheet('Deuda por inquilino')
+  addTitleBlock(debtSheet, 'Deuda acumulada por inquilino', 'Todos los meses', rangeLabel, 7)
+  const debtHeader = debtSheet.rowCount + 1
+  debtSheet.getRow(debtHeader).values = ['Piso', 'Habitación', 'Inquilino', 'Teléfono', 'Cobros pendientes', 'Saldo total', 'Vencimiento más antiguo']
+  debtSheet.columns = [{ key: 'piso' }, { key: 'hab' }, { key: 'inq' }, { key: 'tel' }, { key: 'n' }, { key: 'saldo' }, { key: 'antiguo' }]
+  for (const d of debtors) {
+    debtSheet.addRow({
+      piso: FLOOR_LABEL[d.p.floor],
+      hab: d.p.room_number,
+      inq: `${d.p.first_name} ${d.p.last_name}`,
+      tel: d.p.phone,
+      n: d.count,
+      saldo: d.balance,
+      antiguo: d.oldest ? formatDateEs(d.oldest) : '—',
+    })
+  }
+  styleHeaderRow(debtSheet.getRow(debtHeader))
+  styleDataRows(debtSheet, debtHeader + 1, debtSheet.rowCount, [5, 6])
+  formatMoneyColumns(debtSheet, debtHeader + 1, debtSheet.rowCount, [6])
+  debtSheet.views = [{ state: 'frozen', ySplit: debtHeader }]
+  autoFitColumns(debtSheet, debtHeader)
+
+  await downloadWorkbook(workbook, `cobros-arriendos_${period.slice(0, 7)}.xlsx`)
 }

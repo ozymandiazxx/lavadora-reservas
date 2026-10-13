@@ -75,7 +75,6 @@ export interface Lease {
   active: boolean
   /** "YYYY-MM-DD" o null. */
   move_in_date: string | null
-  contract_end: string | null
   /** Día de pago que pidió el inquilino y la dueña aún no resolvió. */
   requested_due_day: number | null
 }

@@ -81,19 +81,15 @@ export function RentTenant({ userId }: { userId: string }) {
         <div className="space-y-2 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
           <div className="flex items-center gap-2">
             <CalendarClock className="size-5 text-teal-600" strokeWidth={2.2} />
-            <p className="font-bold text-slate-800">Mi contrato</p>
+            <p className="font-bold text-slate-800">Mi arriendo</p>
           </div>
-          <dl className="grid grid-cols-3 gap-2 text-center">
+          <dl className="grid grid-cols-2 gap-2 text-center">
             <div className="rounded-xl bg-slate-50 p-2">
               <dt className="text-[11px] font-semibold text-slate-400">Ingreso</dt>
               <dd className="text-sm font-bold text-slate-700">{lease.move_in_date ? formatDateEs(lease.move_in_date) : '—'}</dd>
             </div>
             <div className="rounded-xl bg-slate-50 p-2">
-              <dt className="text-[11px] font-semibold text-slate-400">Vence</dt>
-              <dd className="text-sm font-bold text-slate-700">{lease.contract_end ? formatDateEs(lease.contract_end) : '—'}</dd>
-            </div>
-            <div className="rounded-xl bg-slate-50 p-2">
-              <dt className="text-[11px] font-semibold text-slate-400">Día de pago</dt>
+              <dt className="text-[11px] font-semibold text-slate-400">Día de pago de cada mes</dt>
               <dd className="text-sm font-bold text-slate-700">{lease.due_day}</dd>
             </div>
           </dl>

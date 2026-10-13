@@ -146,7 +146,6 @@ function seedRent(): { leases: Lease[]; charges: Charge[]; payments: Payment[] }
     late_fee_per_day,
     active: true,
     move_in_date: null,
-    contract_end: null,
     requested_due_day: null,
   })
   const rentCharge = (id: string, tenant_id: string, period: string, amount: number, dueDay: number): Charge => ({
@@ -174,7 +173,7 @@ function seedRent(): { leases: Lease[]; charges: Charge[]; payments: Payment[] }
   })
   return {
     leases: [
-      { ...lease(DEMO_TENANT_ID, 120, 5, 2), move_in_date: '2026-01-15', contract_end: '2027-01-15' },
+      { ...lease(DEMO_TENANT_ID, 120, 5, 2), move_in_date: '2026-01-15' },
       { ...lease('neighbor-1', 150, 5, 2), requested_due_day: 15 },
       lease('neighbor-2', 200, 1, 3),
     ],
@@ -470,7 +469,7 @@ export const mockDb = {
   async requestDueDay(tenantId: string, day: number): Promise<MockResult<null>> {
     const lease = leases.find((l) => l.tenant_id === tenantId && l.active)
     if (!lease || lease.due_day === day) {
-      return { data: null, error: { code: 'P0001', message: 'No tienes un contrato activo o ya pagas ese día.' } }
+      return { data: null, error: { code: 'P0001', message: 'No tienes un arriendo activo o ya pagas ese día.' } }
     }
     leases = leases.map((l) => (l.tenant_id === tenantId ? { ...l, requested_due_day: day } : l))
     const t = profileFor(tenantId)

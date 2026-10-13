@@ -214,7 +214,7 @@ export interface RentData {
   payments: Payment[]
 }
 
-/** Contratos, cobros y pagos. Con `tenantId` solo los de ese inquilino; con null, todos (dueña). */
+/** Arriendos, cobros y pagos. Con `tenantId` solo los de ese inquilino; con null, todos (dueña). */
 export async function fetchRentData(tenantId: string | null): Promise<DbResult<RentData>> {
   if (isDemoMode) return mockDb.getRentData(tenantId)
 

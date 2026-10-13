@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
-import { BellRing, ChevronDown, ChevronLeft, ChevronRight, Droplets, Landmark, Paperclip, Plus, Settings2 } from 'lucide-react'
+import { BellRing, ChevronDown, Download, ChevronLeft, ChevronRight, Droplets, Landmark, Paperclip, Plus, Settings2 } from 'lucide-react'
 import {
   addLaundryCharges,
   createCharges,
@@ -61,6 +61,7 @@ export function RentOwner() {
   const [filter, setFilter] = useState<Filter>('todos')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [dialog, setDialog] = useState<Dialog | null>(null)
+  const [exporting, setExporting] = useState(false)
   const { toast, showToast, dismissToast } = useToast()
 
   const load = useCallback(async () => {
@@ -105,6 +106,17 @@ export function RentOwner() {
       })
       .filter((r) => filter === 'todos' || r.debt > 0)
   }, [profiles, summaries, data, period, filter])
+
+  async function handleExport() {
+    if (!data) return
+    setExporting(true)
+    try {
+      const { exportRentExcel } = await import('@/lib/exportExcel')
+      await exportRentExcel({ period, profiles, ...data, today })
+    } finally {
+      setExporting(false)
+    }
+  }
 
   async function run(action: Promise<{ error: { code: string; message: string } | null }>, okMessage?: string) {
     const { error } = await action
@@ -218,6 +230,16 @@ export function RentOwner() {
         </div>
       )}
 
+      <button
+        type="button"
+        onClick={handleExport}
+        disabled={exporting || !data}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 py-3.5 text-sm font-bold text-white shadow-md transition hover:bg-slate-800 disabled:opacity-40"
+      >
+        <Download className="size-4" strokeWidth={2.2} />
+        {exporting ? 'Generando…' : `Descargar Excel de ${periodLabel(period)}`}
+      </button>
+
       <div className="grid grid-cols-3 gap-2">
         <ToolButton icon={Plus} label="Nuevo cargo" onClick={() => setDialog({ type: 'charge', tenantId: 'todos' })} />
         <ToolButton icon={Droplets} label="Cobrar lavadora" onClick={() => setDialog({ type: 'laundry' })} />
@@ -264,7 +286,7 @@ export function RentOwner() {
                     </p>
                     <p className="text-xs text-slate-400">
                       {FLOOR_LABEL[profile.floor]} · Hab. {profile.room_number}
-                      {lease?.active ? ` · ${formatMoney(lease.monthly_rent)}/mes` : ' · sin contrato'}
+                      {lease?.active ? ` · ${formatMoney(lease.monthly_rent)}/mes` : ' · sin arriendo'}
                     </p>
                   </div>
                   <div className="text-right">
@@ -517,7 +539,6 @@ function LeaseSheet({
   const [lateFee, setLateFee] = useState(String(lease?.late_fee_per_day ?? 0))
   const [active, setActive] = useState(lease?.active ?? true)
   const [moveIn, setMoveIn] = useState(lease?.move_in_date ?? '')
-  const [contractEnd, setContractEnd] = useState(lease?.contract_end ?? '')
   const [saving, setSaving] = useState(false)
 
   async function submit(e: FormEvent) {
@@ -530,7 +551,6 @@ function LeaseSheet({
       late_fee_per_day: Number(lateFee) || 0,
       active,
       move_in_date: moveIn || null,
-      contract_end: contractEnd || null,
     })
     setSaving(false)
   }
@@ -547,17 +567,12 @@ function LeaseSheet({
         <Field label="Multa por cada día de atraso (USD, 0 = sin multa)">
           <input type="number" inputMode="decimal" step="0.01" min="0" value={lateFee} onChange={(e) => setLateFee(e.target.value)} className={inputClass} />
         </Field>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Fecha de ingreso">
-            <input type="date" value={moveIn} onChange={(e) => setMoveIn(e.target.value)} className={inputClass} />
-          </Field>
-          <Field label="Fin de contrato">
-            <input type="date" min={moveIn || undefined} value={contractEnd} onChange={(e) => setContractEnd(e.target.value)} className={inputClass} />
-          </Field>
-        </div>
+        <Field label="Fecha de ingreso (opcional)">
+          <input type="date" value={moveIn} onChange={(e) => setMoveIn(e.target.value)} className={inputClass} />
+        </Field>
         <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="size-4 accent-teal-600" />
-          Contrato activo (genera cobro mensual)
+          Arriendo activo (genera cobro mensual)
         </label>
         <SubmitButton disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</SubmitButton>
       </form>
@@ -611,7 +626,7 @@ function ChargeSheet({
       <form onSubmit={submit} className="space-y-3">
         <Field label="Para">
           <select value={tenantId} onChange={(e) => setTenantId(e.target.value)} className={inputClass}>
-            <option value="todos">Todos los inquilinos con contrato activo</option>
+            <option value="todos">Todos los inquilinos con arriendo activo</option>
             {profiles.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.first_name} {p.last_name} · Hab. {p.room_number} ({FLOOR_LABEL[p.floor]})
