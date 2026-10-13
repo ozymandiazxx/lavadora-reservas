@@ -1,6 +1,6 @@
 import { Home, PackageSearch, ShieldCheck, User, Wallet, WashingMachine } from 'lucide-react'
 
-export type AppTab = 'home' | 'booking' | 'lostfound' | 'owner' | 'rent' | 'profile'
+export type AppTab = 'home' | 'booking' | 'lostfound' | 'owner' | 'rent' | 'maintenance' | 'profile'
 
 interface BottomNavigationProps {
   tab: AppTab

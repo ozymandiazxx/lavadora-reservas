@@ -122,6 +122,29 @@ export interface NewCharge {
   due_date: string
 }
 
+export type MaintenanceCategory = 'lavadora' | 'luz' | 'agua' | 'internet' | 'habitacion' | 'otro'
+
+export type MaintenanceStatus = 'pendiente' | 'en_proceso' | 'resuelto'
+
+export interface MaintenanceRequest {
+  id: string
+  tenant_id: string
+  category: MaintenanceCategory
+  description: string
+  photo_path: string | null
+  status: MaintenanceStatus
+  response: string | null
+  created_at: string
+  resolved_at: string | null
+}
+
+export interface Announcement {
+  id: string
+  title: string
+  body: string
+  created_at: string
+}
+
 export interface PostgrestLikeError {
   message: string
   code: string

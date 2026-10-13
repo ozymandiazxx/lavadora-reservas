@@ -6,6 +6,7 @@ import { DemoBanner } from '@/components/DemoBanner'
 import { Home } from '@/components/Home'
 import { LaundryBooking } from '@/components/LaundryBooking'
 import { LostFound } from '@/components/LostFound'
+import { MaintenanceTenant } from '@/components/MaintenanceTenant'
 import { OwnerView } from '@/components/OwnerView'
 import { Profile } from '@/components/Profile'
 import { RentTenant } from '@/components/RentTenant'
@@ -70,6 +71,8 @@ function App() {
           <LostFound userId={userId} isOwner={profile.is_owner} />
         ) : tab === 'rent' && !profile.is_owner ? (
           <RentTenant userId={userId} />
+        ) : tab === 'maintenance' ? (
+          <MaintenanceTenant userId={userId} />
         ) : tab === 'profile' ? (
           <Profile profile={profile} onNavigate={setTab} />
         ) : tab === 'booking' ? (

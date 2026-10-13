@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Bell, ChevronRight, Clock3, Wallet } from 'lucide-react'
-import { fetchMyReservations, fetchNotifications, fetchRentData, markAllNotificationsRead, markNotificationRead } from '@/lib/db'
-import { formatShortDateTime, formatShortTime, todayLocalISO } from '@/lib/dateUtils'
+import { Bell, ChevronRight, Clock3, Megaphone, Wallet, Wrench } from 'lucide-react'
+import { fetchAnnouncements, fetchMyReservations, fetchNotifications, fetchRentData, markAllNotificationsRead, markNotificationRead } from '@/lib/db'
+import { formatDateEs, formatShortDateTime, formatShortTime, todayLocalISO } from '@/lib/dateUtils'
 import { formatMoney, summarizeAll } from '@/lib/rent'
 import { classifyReservationError } from '@/lib/errors'
 import { FLOOR_LABEL } from '@/lib/rooms'
-import type { AppNotification, Profile, Reservation } from '@/lib/types'
+import type { Announcement, AppNotification, Profile, Reservation } from '@/lib/types'
 import type { AppTab } from './BottomNavigation'
 import { NotificationsPanel } from './NotificationsPanel'
 import { useToast, ToastView } from './Toast'
@@ -18,12 +18,17 @@ export function Home({ userId, profile, onNavigate }: { userId: string; profile:
   const [nextReservation, setNextReservation] = useState<Reservation | null>(null)
   const [notifications, setNotifications] = useState<AppNotification[]>([])
   const [showNotifications, setShowNotifications] = useState(false)
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [rentDue, setRentDue] = useState<{ owed: number; overdue: number } | null>(null)
   const { toast, showToast, dismissToast } = useToast()
 
   useEffect(() => {
     fetchMyReservations(userId).then(({ data }) => setNextReservation(data?.[0] ?? null))
   }, [userId])
+
+  useEffect(() => {
+    fetchAnnouncements(3).then(({ data }) => setAnnouncements(data ?? []))
+  }, [])
 
   useEffect(() => {
     if (profile.is_owner) return
@@ -104,6 +109,22 @@ export function Home({ userId, profile, onNavigate }: { userId: string; profile:
         </div>
       </button>
 
+      {announcements.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="flex items-center gap-1.5 px-1 text-sm font-bold text-slate-700">
+            <Megaphone className="size-4 text-teal-600" strokeWidth={2.2} />
+            Avisos del edificio
+          </h3>
+          {announcements.map((a) => (
+            <div key={a.id} className="rounded-2xl border-l-4 border-teal-500 bg-white p-3.5 shadow-sm shadow-slate-900/5">
+              <p className="font-bold text-slate-800">{a.title}</p>
+              <p className="text-xs text-slate-400">{formatDateEs(a.created_at.slice(0, 10))}</p>
+              <p className="mt-1 text-sm whitespace-pre-line text-slate-600">{a.body}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {rentDue && rentDue.owed > 0 && (
         <button
           type="button"
@@ -133,6 +154,23 @@ export function Home({ userId, profile, onNavigate }: { userId: string; profile:
             </p>
           </div>
         </div>
+      )}
+
+      {!profile.is_owner && (
+        <button
+          type="button"
+          onClick={() => onNavigate('maintenance')}
+          className="flex w-full items-center gap-3 rounded-2xl bg-white p-4 text-left shadow-sm shadow-slate-900/5 transition active:scale-[0.99]"
+        >
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-slate-100">
+            <Wrench className="size-6 text-slate-500" strokeWidth={2} />
+          </div>
+          <div className="flex-1">
+            <p className="font-bold text-slate-800">Reportar un problema</p>
+            <p className="text-sm text-slate-400">Fallas de lavadora, luz, agua u otras</p>
+          </div>
+          <ChevronRight className="size-5 text-slate-300" strokeWidth={2.2} />
+        </button>
       )}
 
       <button

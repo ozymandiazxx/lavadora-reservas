@@ -2,7 +2,11 @@ import { isDemoMode, supabase } from './supabase'
 import { DEMO_TENANT_ID, mockDb } from './mockSupabase'
 import { nowLocalDateTime, weekDates } from './dateUtils'
 import type {
+  Announcement,
   AppNotification,
+  MaintenanceCategory,
+  MaintenanceRequest,
+  MaintenanceStatus,
   Charge,
   Lease,
   NewCharge,
@@ -324,5 +328,82 @@ export async function fetchPaymentInstructions(): Promise<DbResult<string>> {
 export async function savePaymentInstructions(text: string): Promise<DbResult<null>> {
   if (isDemoMode) return mockDb.savePaymentInstructions(text)
   const { error } = await supabase!.from('rent_settings').update({ payment_instructions: text }).eq('singleton', true)
+  return { data: null, error: toDbError(error) }
+}
+
+// ---------- Mantenimiento ----------
+
+/** Reportes de fallas. Con `tenantId` solo los de ese inquilino; con null, todos (dueña). */
+export async function fetchMaintenance(tenantId: string | null): Promise<DbResult<MaintenanceRequest[]>> {
+  if (isDemoMode) return mockDb.getMaintenance(tenantId)
+  let query = supabase!.from('maintenance_requests').select('*').order('created_at', { ascending: false })
+  if (tenantId) query = query.eq('tenant_id', tenantId)
+  const { data, error } = await query
+  return { data: data as MaintenanceRequest[] | null, error: toDbError(error) }
+}
+
+export async function createMaintenance(
+  tenantId: string,
+  category: MaintenanceCategory,
+  description: string,
+  photo: File | null,
+): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.createMaintenance(tenantId, category, description, photo ? URL.createObjectURL(photo) : null)
+
+  let photoPath: string | null = null
+  if (photo) {
+    photoPath = `${tenantId}/${crypto.randomUUID()}-${photo.name.replace(/[^\w.-]/g, '_')}`
+    const { error: uploadError } = await supabase!.storage.from('maintenance').upload(photoPath, photo)
+    if (uploadError) return { data: null, error: toDbError(uploadError) }
+  }
+  const { error } = await supabase!
+    .from('maintenance_requests')
+    .insert({ tenant_id: tenantId, category, description, photo_path: photoPath })
+  return { data: null, error: toDbError(error) }
+}
+
+export async function updateMaintenance(
+  id: string,
+  status: MaintenanceStatus,
+  response: string | null,
+): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.updateMaintenance(id, status, response)
+  const { error } = await supabase!
+    .from('maintenance_requests')
+    .update({ status, response, resolved_at: status === 'resuelto' ? new Date().toISOString() : null })
+    .eq('id', id)
+  return { data: null, error: toDbError(error) }
+}
+
+export async function deleteMaintenance(id: string): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.deleteMaintenance(id)
+  const { error } = await supabase!.from('maintenance_requests').delete().eq('id', id)
+  return { data: null, error: toDbError(error) }
+}
+
+/** URL temporal para ver la foto de un reporte (bucket privado). */
+export async function getMaintenancePhotoUrl(path: string): Promise<string | null> {
+  if (isDemoMode) return path
+  const { data } = await supabase!.storage.from('maintenance').createSignedUrl(path, 300)
+  return data?.signedUrl ?? null
+}
+
+// ---------- Avisos generales ----------
+
+export async function fetchAnnouncements(limit = 20): Promise<DbResult<Announcement[]>> {
+  if (isDemoMode) return mockDb.getAnnouncements()
+  const { data, error } = await supabase!.from('announcements').select('*').order('created_at', { ascending: false }).limit(limit)
+  return { data: data as Announcement[] | null, error: toDbError(error) }
+}
+
+export async function createAnnouncement(title: string, body: string): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.createAnnouncement(title, body)
+  const { error } = await supabase!.from('announcements').insert({ title, body })
+  return { data: null, error: toDbError(error) }
+}
+
+export async function deleteAnnouncement(id: string): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.deleteAnnouncement(id)
+  const { error } = await supabase!.from('announcements').delete().eq('id', id)
   return { data: null, error: toDbError(error) }
 }

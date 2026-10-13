@@ -1,5 +1,9 @@
 import type {
+  Announcement,
   AppNotification,
+  MaintenanceCategory,
+  MaintenanceRequest,
+  MaintenanceStatus,
   Charge,
   Lease,
   NewCharge,
@@ -185,6 +189,28 @@ let leases: Lease[] = seededRent.leases
 let charges: Charge[] = seededRent.charges
 let payments: Payment[] = seededRent.payments
 let paymentInstructions = 'Banco Pichincha · Cuenta de ahorros 1234567890 · A nombre de la propietaria'
+
+let maintenance: MaintenanceRequest[] = [
+  {
+    id: 'm-seed-1',
+    tenant_id: 'neighbor-1',
+    category: 'agua',
+    description: 'La llave del lavamanos del piso 3 gotea todo el día.',
+    photo_path: null,
+    status: 'pendiente',
+    response: null,
+    created_at: new Date().toISOString(),
+    resolved_at: null,
+  },
+]
+let announcements: Announcement[] = [
+  {
+    id: 'a-seed-1',
+    title: 'Corte de agua programado',
+    body: 'El sábado de 9:00 a 12:00 habrá corte de agua por mantenimiento de la cisterna.',
+    created_at: new Date().toISOString(),
+  },
+]
 
 let reservations: Reservation[] = seedReservations()
 let lostFoundReports: LostFoundReport[] = seedLostFound()
@@ -543,6 +569,69 @@ export const mockDb = {
 
   async savePaymentInstructions(text: string): Promise<MockResult<null>> {
     paymentInstructions = text
+    return { data: null, error: null }
+  },
+  // ---------- Mantenimiento y avisos ----------
+
+  async getMaintenance(tenantId: string | null): Promise<MockResult<MaintenanceRequest[]>> {
+    const list = maintenance
+      .filter((m) => !tenantId || m.tenant_id === tenantId)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+    return { data: list, error: null }
+  },
+
+  async createMaintenance(
+    tenantId: string,
+    category: MaintenanceCategory,
+    description: string,
+    photoPath: string | null,
+  ): Promise<MockResult<null>> {
+    maintenance = [
+      {
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        category,
+        description,
+        photo_path: photoPath,
+        status: 'pendiente',
+        response: null,
+        created_at: new Date().toISOString(),
+        resolved_at: null,
+      },
+      ...maintenance,
+    ]
+    const t = profileFor(tenantId)
+    pushNotification(OWNER_RECIPIENT, 'Nueva falla reportada', `${t.first_name} ${t.last_name} (Hab. ${t.room_number}): ${description.slice(0, 80)}`)
+    return { data: null, error: null }
+  },
+
+  async updateMaintenance(id: string, status: MaintenanceStatus, response: string | null): Promise<MockResult<null>> {
+    const m = maintenance.find((x) => x.id === id)
+    if (!m) return { data: null, error: { code: '42501', message: 'row-level security' } }
+    maintenance = maintenance.map((x) =>
+      x.id === id ? { ...x, status, response, resolved_at: status === 'resuelto' ? new Date().toISOString() : null } : x,
+    )
+    pushNotification(m.tenant_id, `Tu reporte está ${status === 'en_proceso' ? 'en proceso' : status}`, m.description.slice(0, 60))
+    return { data: null, error: null }
+  },
+
+  async deleteMaintenance(id: string): Promise<MockResult<null>> {
+    maintenance = maintenance.filter((m) => m.id !== id)
+    return { data: null, error: null }
+  },
+
+  async getAnnouncements(): Promise<MockResult<Announcement[]>> {
+    return { data: [...announcements].sort((a, b) => b.created_at.localeCompare(a.created_at)), error: null }
+  },
+
+  async createAnnouncement(title: string, body: string): Promise<MockResult<null>> {
+    announcements = [{ id: crypto.randomUUID(), title, body, created_at: new Date().toISOString() }, ...announcements]
+    pushNotification(DEMO_TENANT_ID, `Aviso: ${title}`, body.slice(0, 140))
+    return { data: null, error: null }
+  },
+
+  async deleteAnnouncement(id: string): Promise<MockResult<null>> {
+    announcements = announcements.filter((a) => a.id !== id)
     return { data: null, error: null }
   },
 }

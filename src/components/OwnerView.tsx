@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
-import { Building2, ChevronDown, Clock3, Download, Phone, ShieldCheck, Users, Wallet } from 'lucide-react'
+import { Building2, ChevronDown, ClipboardList, Clock3, Download, Phone, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { fetchOwnerReservations } from '@/lib/db'
 import {
   formatShortDateTime,
@@ -12,6 +12,7 @@ import {
 } from '@/lib/dateUtils'
 import { FLOOR_LABEL } from '@/lib/rooms'
 import type { ReservationWithDetails } from '@/lib/types'
+import { ManagementPanel } from './ManagementPanel'
 import { RentOwner } from './RentOwner'
 import { UsageDashboard } from './UsageDashboard'
 import { UsersPanel } from './UsersPanel'
@@ -34,7 +35,7 @@ function initialsOf(firstName: string, lastName: string): string {
 }
 
 type Period = 'week' | 'month' | '3months' | 'custom'
-type Section = 'reservas' | 'arriendos' | 'edificio' | 'usuarios'
+type Section = 'reservas' | 'arriendos' | 'edificio' | 'gestion' | 'usuarios'
 
 const PERIOD_LABEL: Record<Period, string> = {
   week: 'Esta semana',
@@ -99,7 +100,7 @@ export function OwnerView() {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-1 rounded-2xl bg-white p-1.5 shadow-sm shadow-slate-900/5">
+      <div className="grid grid-cols-5 gap-1 rounded-2xl bg-white p-1.5 shadow-sm shadow-slate-900/5">
         <button
           type="button"
           onClick={() => setSection('reservas')}
@@ -132,6 +133,16 @@ export function OwnerView() {
         </button>
         <button
           type="button"
+          onClick={() => setSection('gestion')}
+          className={`flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 text-[11px] font-bold transition ${
+            section === 'gestion' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-500'
+          }`}
+        >
+          <ClipboardList className="size-4" strokeWidth={2.2} />
+          Gestión
+        </button>
+        <button
+          type="button"
           onClick={() => setSection('usuarios')}
           className={`flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 text-[11px] font-bold transition ${
             section === 'usuarios' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-500'
@@ -146,6 +157,8 @@ export function OwnerView() {
         <UsersPanel />
       ) : section === 'arriendos' ? (
         <RentOwner />
+      ) : section === 'gestion' ? (
+        <ManagementPanel />
       ) : section === 'edificio' ? (
         <Suspense fallback={<p className="text-center text-sm text-slate-500">Cargando vista 3D…</p>}>
           <BuildingPanel />
