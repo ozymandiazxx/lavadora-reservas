@@ -25,6 +25,7 @@ import {
   periodOf,
   shiftPeriod,
   summarizeAll,
+  whatsappReminderUrl,
   type ChargeStatus,
   type ChargeSummary,
 } from '@/lib/rent'
@@ -270,6 +271,22 @@ export function RentOwner() {
                                 Recordar
                               </button>
                             )}
+                            {s.balance > 0 &&
+                              (() => {
+                                const url = whatsappReminderUrl(profile.phone, profile.first_name, s)
+                                return (
+                                  url && (
+                                    <a
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700"
+                                    >
+                                      WhatsApp
+                                    </a>
+                                  )
+                                )
+                              })()}
                             {s.payments.length === 0 && (
                               <button
                                 type="button"

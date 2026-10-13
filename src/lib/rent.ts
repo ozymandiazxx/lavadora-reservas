@@ -104,3 +104,15 @@ export function summarizeAll(charges: Charge[], leases: Lease[], payments: Payme
   const leaseByTenant = new Map(leases.map((l) => [l.tenant_id, l]))
   return charges.map((c) => summarizeCharge(c, leaseByTenant.get(c.tenant_id), payments, today))
 }
+
+/** Enlace de WhatsApp con el recordatorio ya escrito. Teléfonos de Ecuador: 09xxxxxxxx -> 5939xxxxxxxx. */
+export function whatsappReminderUrl(phone: string, firstName: string, summary: ChargeSummary): string | null {
+  let digits = phone.replace(/\D/g, '')
+  if (digits.startsWith('0')) digits = `593${digits.slice(1)}`
+  if (digits.length < 10) return null
+  const text =
+    `Hola ${firstName}, te escribo por el pago de ${summary.charge.concept}. ` +
+    `Saldo pendiente: ${formatMoney(summary.balance)} (vencía el ${summary.charge.due_date.split('-').reverse().join('/')}). ` +
+    'Cuando lo realices, súbelo en la app, pestaña Pagos. ¡Gracias!'
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`
+}

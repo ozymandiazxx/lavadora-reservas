@@ -5,6 +5,7 @@ import { FLOOR_LABEL } from '@/lib/rooms'
 import { supabase } from '@/lib/supabase'
 import type { Profile as ProfileType } from '@/lib/types'
 import type { AppTab } from './BottomNavigation'
+import { PushToggle } from './PushToggle'
 
 function initialsOf(firstName: string, lastName: string): string {
   return `${firstName[0] ?? ''}${lastName[0] ?? ''}`.toUpperCase()
@@ -48,6 +49,8 @@ export function Profile({ profile, onNavigate }: { profile: ProfileType; onNavig
           {ROOM_TYPE_LABEL[profile.room_type]}
         </span>
       </div>
+
+      <PushToggle userId={profile.id} />
 
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm shadow-slate-900/5">
         <button
