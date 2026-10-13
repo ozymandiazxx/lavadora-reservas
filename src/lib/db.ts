@@ -9,6 +9,7 @@ import type {
   MaintenanceStatus,
   Charge,
   Lease,
+  LeaseInput,
   NewCharge,
   NewPayment,
   Payment,
@@ -238,7 +239,7 @@ export async function fetchRentData(tenantId: string | null): Promise<DbResult<R
   }
 }
 
-export async function upsertLease(lease: Lease): Promise<DbResult<null>> {
+export async function upsertLease(lease: LeaseInput): Promise<DbResult<null>> {
   if (isDemoMode) return mockDb.upsertLease(lease)
   const { error } = await supabase!.from('leases').upsert({ ...lease, updated_at: new Date().toISOString() })
   return { data: null, error: toDbError(error) }
@@ -405,5 +406,20 @@ export async function createAnnouncement(title: string, body: string): Promise<D
 export async function deleteAnnouncement(id: string): Promise<DbResult<null>> {
   if (isDemoMode) return mockDb.deleteAnnouncement(id)
   const { error } = await supabase!.from('announcements').delete().eq('id', id)
+  return { data: null, error: toDbError(error) }
+}
+
+/** El inquilino pide otro día de pago (la dueña lo aprueba o rechaza). */
+export async function requestDueDay(day: number): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.requestDueDay(DEMO_TENANT_ID, day)
+  const { error } = await supabase!.rpc('request_due_day', { p_day: day })
+  return { data: null, error: toDbError(error) }
+}
+
+/** La dueña resuelve la solicitud: aprobar cambia el día de pago; rechazar la descarta. */
+export async function resolveDueDayRequest(lease: Lease, approve: boolean): Promise<DbResult<null>> {
+  if (isDemoMode) return mockDb.resolveDueDayRequest(lease.tenant_id, approve)
+  const patch = approve && lease.requested_due_day ? { due_day: lease.requested_due_day, requested_due_day: null } : { requested_due_day: null }
+  const { error } = await supabase!.from('leases').update(patch).eq('tenant_id', lease.tenant_id)
   return { data: null, error: toDbError(error) }
 }

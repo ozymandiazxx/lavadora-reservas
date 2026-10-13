@@ -73,7 +73,15 @@ export interface Lease {
   due_day: number
   late_fee_per_day: number
   active: boolean
+  /** "YYYY-MM-DD" o null. */
+  move_in_date: string | null
+  contract_end: string | null
+  /** Día de pago que pidió el inquilino y la dueña aún no resolvió. */
+  requested_due_day: number | null
 }
+
+/** Lo que la dueña edita en las condiciones del arriendo (la solicitud del inquilino no se toca). */
+export type LeaseInput = Omit<Lease, 'requested_due_day'>
 
 export interface Charge {
   id: string

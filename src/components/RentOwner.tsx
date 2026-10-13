@@ -12,6 +12,7 @@ import {
   reviewPayment,
   runRentJob,
   savePaymentInstructions,
+  resolveDueDayRequest,
   upsertLease,
   type RentData,
 } from '@/lib/db'
@@ -30,7 +31,7 @@ import {
   type ChargeSummary,
 } from '@/lib/rent'
 import { FLOOR_LABEL } from '@/lib/rooms'
-import type { ChargeKind, Lease, Payment, PaymentStatus, Profile } from '@/lib/types'
+import type { ChargeKind, Lease, LeaseInput, Payment, PaymentStatus, Profile } from '@/lib/types'
 import { ChargeCard, openReceipt } from './ChargeCard'
 import { PaymentForm } from './PaymentForm'
 import { Field, Sheet, inputClass } from './Sheet'
@@ -86,6 +87,7 @@ export function RentOwner() {
   const toCollect = periodSummaries.reduce((sum, s) => sum + s.balance, 0)
   const overdueCount = periodSummaries.filter((s) => s.status === 'vencido').length
   const pendingPayments = (data?.payments ?? []).filter((p) => p.status === 'pendiente')
+  const dayRequests = (data?.leases ?? []).filter((l) => l.requested_due_day != null)
 
   const rows = useMemo(() => {
     const leaseByTenant = new Map((data?.leases ?? []).map((l) => [l.tenant_id, l]))
@@ -132,6 +134,41 @@ export function RentOwner() {
         <Tile label="Por cobrar" value={formatMoney(toCollect)} tone="text-amber-600" />
         <Tile label="Vencidos" value={String(overdueCount)} tone={overdueCount > 0 ? 'text-rose-600' : 'text-slate-800'} />
       </div>
+
+      {dayRequests.length > 0 && (
+        <div className="space-y-2 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+          <p className="text-sm font-extrabold text-amber-800">Cambios de día de pago ({dayRequests.length})</p>
+          {dayRequests.map((l) => {
+            const who = profileById.get(l.tenant_id)
+            return (
+              <div key={l.tenant_id} className="rounded-xl bg-white p-3 text-sm shadow-sm shadow-slate-900/5">
+                <p className="font-bold text-slate-800">
+                  {who ? `${who.first_name} ${who.last_name} · Hab. ${who.room_number}` : 'Inquilino'}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Paga el día {l.due_day} y pide pagar el día <b>{l.requested_due_day}</b> de cada mes. Aplica desde el próximo cobro.
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => run(resolveDueDayRequest(l, true), 'Día de pago actualizado.')}
+                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white"
+                  >
+                    Aprobar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => run(resolveDueDayRequest(l, false), 'Solicitud rechazada.')}
+                    className="rounded-lg bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-600"
+                  >
+                    Rechazar
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {pendingPayments.length > 0 && (
         <div className="space-y-2 rounded-2xl border border-sky-200 bg-sky-50 p-3">
@@ -473,12 +510,14 @@ function LeaseSheet({
   profile: Profile
   lease: Lease | undefined
   onClose: () => void
-  onSave: (lease: Lease) => Promise<void>
+  onSave: (lease: LeaseInput) => Promise<void>
 }) {
   const [rent, setRent] = useState(lease ? String(lease.monthly_rent) : '')
   const [dueDay, setDueDay] = useState(String(lease?.due_day ?? 5))
   const [lateFee, setLateFee] = useState(String(lease?.late_fee_per_day ?? 0))
   const [active, setActive] = useState(lease?.active ?? true)
+  const [moveIn, setMoveIn] = useState(lease?.move_in_date ?? '')
+  const [contractEnd, setContractEnd] = useState(lease?.contract_end ?? '')
   const [saving, setSaving] = useState(false)
 
   async function submit(e: FormEvent) {
@@ -490,6 +529,8 @@ function LeaseSheet({
       due_day: Number(dueDay),
       late_fee_per_day: Number(lateFee) || 0,
       active,
+      move_in_date: moveIn || null,
+      contract_end: contractEnd || null,
     })
     setSaving(false)
   }
@@ -506,6 +547,14 @@ function LeaseSheet({
         <Field label="Multa por cada día de atraso (USD, 0 = sin multa)">
           <input type="number" inputMode="decimal" step="0.01" min="0" value={lateFee} onChange={(e) => setLateFee(e.target.value)} className={inputClass} />
         </Field>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Fecha de ingreso">
+            <input type="date" value={moveIn} onChange={(e) => setMoveIn(e.target.value)} className={inputClass} />
+          </Field>
+          <Field label="Fin de contrato">
+            <input type="date" min={moveIn || undefined} value={contractEnd} onChange={(e) => setContractEnd(e.target.value)} className={inputClass} />
+          </Field>
+        </div>
         <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="size-4 accent-teal-600" />
           Contrato activo (genera cobro mensual)

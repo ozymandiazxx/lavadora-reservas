@@ -6,6 +6,7 @@ import type {
   MaintenanceStatus,
   Charge,
   Lease,
+  LeaseInput,
   NewCharge,
   Payment,
   PaymentStatus,
@@ -144,6 +145,9 @@ function seedRent(): { leases: Lease[]; charges: Charge[]; payments: Payment[] }
     due_day,
     late_fee_per_day,
     active: true,
+    move_in_date: null,
+    contract_end: null,
+    requested_due_day: null,
   })
   const rentCharge = (id: string, tenant_id: string, period: string, amount: number, dueDay: number): Charge => ({
     id,
@@ -169,7 +173,11 @@ function seedRent(): { leases: Lease[]; charges: Charge[]; payments: Payment[] }
     created_at: new Date().toISOString(),
   })
   return {
-    leases: [lease(DEMO_TENANT_ID, 120, 5, 2), lease('neighbor-1', 150, 5, 2), lease('neighbor-2', 200, 1, 3)],
+    leases: [
+      { ...lease(DEMO_TENANT_ID, 120, 5, 2), move_in_date: '2026-01-15', contract_end: '2027-01-15' },
+      { ...lease('neighbor-1', 150, 5, 2), requested_due_day: 15 },
+      lease('neighbor-2', 200, 1, 3),
+    ],
     charges: [
       rentCharge('c-demo-prev', DEMO_TENANT_ID, lastMonth, 120, 5),
       rentCharge('c-demo-now', DEMO_TENANT_ID, thisMonth, 120, 5),
@@ -450,8 +458,36 @@ export const mockDb = {
     return { data: { leases: mine(leases), charges: mine(charges), payments: mine(payments) }, error: null }
   },
 
-  async upsertLease(lease: Lease): Promise<MockResult<null>> {
-    leases = [...leases.filter((l) => l.tenant_id !== lease.tenant_id), lease]
+  async upsertLease(lease: LeaseInput): Promise<MockResult<null>> {
+    const previous = leases.find((l) => l.tenant_id === lease.tenant_id)
+    leases = [
+      ...leases.filter((l) => l.tenant_id !== lease.tenant_id),
+      { ...lease, requested_due_day: previous?.requested_due_day ?? null },
+    ]
+    return { data: null, error: null }
+  },
+
+  async requestDueDay(tenantId: string, day: number): Promise<MockResult<null>> {
+    const lease = leases.find((l) => l.tenant_id === tenantId && l.active)
+    if (!lease || lease.due_day === day) {
+      return { data: null, error: { code: 'P0001', message: 'No tienes un contrato activo o ya pagas ese día.' } }
+    }
+    leases = leases.map((l) => (l.tenant_id === tenantId ? { ...l, requested_due_day: day } : l))
+    const t = profileFor(tenantId)
+    pushNotification(OWNER_RECIPIENT, 'Cambio de día de pago', `${t.first_name} ${t.last_name} (Hab. ${t.room_number}) pide pagar el día ${day} de cada mes.`)
+    return { data: null, error: null }
+  },
+
+  async resolveDueDayRequest(tenantId: string, approve: boolean): Promise<MockResult<null>> {
+    const lease = leases.find((l) => l.tenant_id === tenantId)
+    if (!lease?.requested_due_day) return { data: null, error: null }
+    const day = approve ? lease.requested_due_day : lease.due_day
+    leases = leases.map((l) => (l.tenant_id === tenantId ? { ...l, due_day: day, requested_due_day: null } : l))
+    pushNotification(
+      tenantId,
+      approve ? 'Día de pago aprobado' : 'Día de pago no aprobado',
+      approve ? `Desde el próximo cobro pagas el día ${day} de cada mes.` : `Se mantiene tu día de pago: el día ${day} de cada mes.`,
+    )
     return { data: null, error: null }
   },
 

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Landmark, Wallet } from 'lucide-react'
-import { deletePayment, fetchPaymentInstructions, fetchRentData, type RentData } from '@/lib/db'
-import { todayLocalISO } from '@/lib/dateUtils'
+import { CalendarClock, Landmark, Wallet } from 'lucide-react'
+import { deletePayment, fetchPaymentInstructions, fetchRentData, requestDueDay, type RentData } from '@/lib/db'
+import { formatDateEs, todayLocalISO } from '@/lib/dateUtils'
 import { formatMoney, summarizeAll, type ChargeSummary } from '@/lib/rent'
+import { classifyRentError } from '@/lib/errors'
 import { ChargeCard } from './ChargeCard'
 import { PaymentForm } from './PaymentForm'
+import { Field, Sheet, inputClass } from './Sheet'
 import { ToastView, useToast } from './Toast'
 
 /** Pestaña "Pagos" del inquilino: qué debe, cómo pagar, y el historial. */
@@ -12,6 +14,8 @@ export function RentTenant({ userId }: { userId: string }) {
   const [data, setData] = useState<RentData | null>(null)
   const [instructions, setInstructions] = useState('')
   const [paying, setPaying] = useState<ChargeSummary | null>(null)
+  const [pickingDay, setPickingDay] = useState(false)
+  const [newDay, setNewDay] = useState('')
   const { toast, showToast, dismissToast } = useToast()
 
   const load = useCallback(() => {
@@ -30,6 +34,14 @@ export function RentTenant({ userId }: { userId: string }) {
   const owed = summaries.reduce((s, c) => s + c.balance, 0)
   const overdue = summaries.filter((c) => c.status === 'vencido')
   const lease = data?.leases[0]
+
+  async function submitDayRequest() {
+    const { error } = await requestDueDay(Number(newDay))
+    if (error) return showToast(classifyRentError(error), 'error')
+    setPickingDay(false)
+    showToast('Solicitud enviada. La dueña la revisará.', 'success')
+    load()
+  }
 
   async function cancelPending(paymentId: string) {
     await deletePayment(paymentId)
@@ -64,6 +76,38 @@ export function RentTenant({ userId }: { userId: string }) {
           </p>
         )}
       </div>
+
+      {lease && lease.active && (
+        <div className="space-y-2 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
+          <div className="flex items-center gap-2">
+            <CalendarClock className="size-5 text-teal-600" strokeWidth={2.2} />
+            <p className="font-bold text-slate-800">Mi contrato</p>
+          </div>
+          <dl className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-xl bg-slate-50 p-2">
+              <dt className="text-[11px] font-semibold text-slate-400">Ingreso</dt>
+              <dd className="text-sm font-bold text-slate-700">{lease.move_in_date ? formatDateEs(lease.move_in_date) : '—'}</dd>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-2">
+              <dt className="text-[11px] font-semibold text-slate-400">Vence</dt>
+              <dd className="text-sm font-bold text-slate-700">{lease.contract_end ? formatDateEs(lease.contract_end) : '—'}</dd>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-2">
+              <dt className="text-[11px] font-semibold text-slate-400">Día de pago</dt>
+              <dd className="text-sm font-bold text-slate-700">{lease.due_day}</dd>
+            </div>
+          </dl>
+          {lease.requested_due_day ? (
+            <p className="rounded-xl bg-amber-50 p-2.5 text-xs font-semibold text-amber-700">
+              Pediste pagar el día {lease.requested_due_day}. Esperando la respuesta de la dueña.
+            </p>
+          ) : (
+            <button type="button" onClick={() => setPickingDay(true)} className="text-xs font-bold text-teal-700">
+              Pedir otro día de pago
+            </button>
+          )}
+        </div>
+      )}
 
       {instructions && (
         <div className="flex gap-3 rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
@@ -119,6 +163,23 @@ export function RentTenant({ userId }: { userId: string }) {
             load()
           }}
         />
+      )}
+
+      {pickingDay && lease && (
+        <Sheet title="Pedir otro día de pago" onClose={() => setPickingDay(false)}>
+          <Field label="¿Qué día del mes prefieres pagar? (1-28)">
+            <input type="number" inputMode="numeric" min="1" max="28" value={newDay} onChange={(e) => setNewDay(e.target.value)} className={inputClass} />
+          </Field>
+          <p className="text-xs text-slate-400">Hoy pagas el día {lease.due_day}. La dueña debe aprobarlo y aplica desde el próximo cobro.</p>
+          <button
+            type="button"
+            disabled={!(Number(newDay) >= 1 && Number(newDay) <= 28) || Number(newDay) === lease.due_day}
+            onClick={submitDayRequest}
+            className="w-full rounded-xl bg-teal-600 py-3 text-sm font-bold text-white disabled:opacity-50"
+          >
+            Enviar solicitud
+          </button>
+        </Sheet>
       )}
 
       <ToastView toast={toast} onDismiss={dismissToast} />
