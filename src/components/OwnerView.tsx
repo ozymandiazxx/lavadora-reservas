@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, Clock3, Download, Phone, ShieldCheck, Users, Wallet } from 'lucide-react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { Building2, ChevronDown, Clock3, Download, Phone, ShieldCheck, Users, Wallet } from 'lucide-react'
 import { fetchOwnerReservations } from '@/lib/db'
 import {
   formatShortDateTime,
@@ -16,6 +16,9 @@ import { RentOwner } from './RentOwner'
 import { UsageDashboard } from './UsageDashboard'
 import { UsersPanel } from './UsersPanel'
 
+// three.js pesa bastante: solo se descarga cuando la dueña abre la vista del edificio.
+const BuildingPanel = lazy(() => import('./BuildingPanel').then((m) => ({ default: m.BuildingPanel })))
+
 const ROOM_TYPE_LABEL: Record<string, string> = {
   normal: 'Normal',
   suite: 'Suite',
@@ -31,7 +34,7 @@ function initialsOf(firstName: string, lastName: string): string {
 }
 
 type Period = 'week' | 'month' | '3months' | 'custom'
-type Section = 'reservas' | 'arriendos' | 'usuarios'
+type Section = 'reservas' | 'arriendos' | 'edificio' | 'usuarios'
 
 const PERIOD_LABEL: Record<Period, string> = {
   week: 'Esta semana',
@@ -92,15 +95,15 @@ export function OwnerView() {
         </div>
         <div>
           <h2 className="text-lg font-extrabold">Panel de la dueña</h2>
-          <p className="text-sm text-slate-300">Reservas, arriendos y directorio de inquilinos</p>
+          <p className="text-sm text-slate-300">Reservas, arriendos, edificio en 3D e inquilinos</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 rounded-2xl bg-white p-1.5 shadow-sm shadow-slate-900/5">
+      <div className="grid grid-cols-4 gap-1 rounded-2xl bg-white p-1.5 shadow-sm shadow-slate-900/5">
         <button
           type="button"
           onClick={() => setSection('reservas')}
-          className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold transition ${
+          className={`flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 text-[11px] font-bold transition ${
             section === 'reservas' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-500'
           }`}
         >
@@ -110,7 +113,7 @@ export function OwnerView() {
         <button
           type="button"
           onClick={() => setSection('arriendos')}
-          className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold transition ${
+          className={`flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 text-[11px] font-bold transition ${
             section === 'arriendos' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-500'
           }`}
         >
@@ -119,8 +122,18 @@ export function OwnerView() {
         </button>
         <button
           type="button"
+          onClick={() => setSection('edificio')}
+          className={`flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 text-[11px] font-bold transition ${
+            section === 'edificio' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-500'
+          }`}
+        >
+          <Building2 className="size-4" strokeWidth={2.2} />
+          Edificio
+        </button>
+        <button
+          type="button"
           onClick={() => setSection('usuarios')}
-          className={`flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold transition ${
+          className={`flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 text-[11px] font-bold transition ${
             section === 'usuarios' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-500'
           }`}
         >
@@ -133,6 +146,10 @@ export function OwnerView() {
         <UsersPanel />
       ) : section === 'arriendos' ? (
         <RentOwner />
+      ) : section === 'edificio' ? (
+        <Suspense fallback={<p className="text-center text-sm text-slate-500">Cargando vista 3D…</p>}>
+          <BuildingPanel />
+        </Suspense>
       ) : (
         <>
           <div className="rounded-2xl bg-white p-3 shadow-sm shadow-slate-900/5">
