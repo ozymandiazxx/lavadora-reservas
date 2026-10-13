@@ -129,7 +129,7 @@ export function Home({ userId, profile, onNavigate }: { userId: string; profile:
           <div>
             <p className="text-xs font-semibold text-slate-400">Tu próxima reserva</p>
             <p className="font-bold text-slate-800">
-              {formatShortDateTime(nextReservation.starts_at)} – {formatShortTime(nextReservation.ends_at)}
+              {formatShortDateTime(nextReservation.starts_at)} – {formatShortTime(nextReservation.ends_at)} · Lavadora {nextReservation.machine}
             </p>
           </div>
         </div>

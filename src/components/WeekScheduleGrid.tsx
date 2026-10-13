@@ -82,7 +82,7 @@ export function WeekScheduleGrid({ selectedDate, onSelectDate, refreshKey }: Wee
                   <div className="flex flex-1 flex-wrap gap-1.5">
                     {ranges.map((r, i) => (
                       <span key={i} className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-500">
-                        {formatShortTime(r.starts_at)}–{formatShortTime(r.ends_at)}
+                        L{r.machine} · {formatShortTime(r.starts_at)}–{formatShortTime(r.ends_at)}
                       </span>
                     ))}
                   </div>

@@ -85,10 +85,10 @@ function addDays(dateStr: string, days: number): string {
 
 function seedReservations(): Reservation[] {
   const today = todayLocalISO()
-  const seeds: Array<{ id: string; tenant_id: string; date: string; time: string }> = [
-    { id: 'seed-1', tenant_id: 'neighbor-1', date: today, time: '17:30' },
-    { id: 'seed-2', tenant_id: 'neighbor-2', date: addDays(today, 1), time: '10:30' },
-    { id: 'seed-3', tenant_id: 'neighbor-3', date: addDays(today, 2), time: '23:30' },
+  const seeds: Array<{ id: string; tenant_id: string; date: string; time: string; machine: number }> = [
+    { id: 'seed-1', tenant_id: 'neighbor-1', date: today, time: '17:30', machine: 1 },
+    { id: 'seed-2', tenant_id: 'neighbor-2', date: addDays(today, 1), time: '10:30', machine: 2 },
+    { id: 'seed-3', tenant_id: 'neighbor-3', date: addDays(today, 2), time: '23:30', machine: 1 },
   ]
   return seeds.map((s) => {
     const starts_at = combineDateAndTime(s.date, s.time)
@@ -97,6 +97,7 @@ function seedReservations(): Reservation[] {
       tenant_id: s.tenant_id,
       starts_at,
       ends_at: reservationEnd(starts_at),
+      machine: s.machine,
       created_at: new Date().toISOString(),
     }
   })
@@ -251,7 +252,7 @@ export const mockDb = {
   async getOccupiedRanges(date: string): Promise<MockResult<OccupiedRange[]>> {
     const ranges = reservations
       .filter((r) => dateOf(r.starts_at) === date || dateOf(r.ends_at) === date)
-      .map((r) => ({ starts_at: r.starts_at, ends_at: r.ends_at }))
+      .map((r) => ({ starts_at: r.starts_at, ends_at: r.ends_at, machine: r.machine }))
     return { data: ranges, error: null }
   },
 
@@ -263,7 +264,7 @@ export const mockDb = {
     return { data: mine, error: null }
   },
 
-  async createReservation(tenantId: string, startsAt: string): Promise<MockResult<Reservation>> {
+  async createReservation(tenantId: string, startsAt: string, machine: number): Promise<MockResult<Reservation>> {
     const nowIso = nowLocalDateTime()
     if (startsAt < nowIso) {
       return {
@@ -280,7 +281,7 @@ export const mockDb = {
     }
 
     const endsAt = reservationEnd(startsAt)
-    const overlap = reservations.find((r) => rangesOverlap(startsAt, endsAt, r.starts_at, r.ends_at))
+    const overlap = reservations.find((r) => r.machine === machine && rangesOverlap(startsAt, endsAt, r.starts_at, r.ends_at))
     if (overlap) {
       return {
         data: null,
@@ -296,12 +297,13 @@ export const mockDb = {
       tenant_id: tenantId,
       starts_at: startsAt,
       ends_at: endsAt,
+      machine,
       created_at: new Date().toISOString(),
     }
     reservations = [...reservations, newReservation]
 
     const tenant = profileFor(tenantId)
-    const formatted = formatShortDateTime(startsAt)
+    const formatted = `${formatShortDateTime(startsAt)} (lavadora ${machine})`
     const now = new Date().toISOString()
     notifications = [
       {

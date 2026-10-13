@@ -231,7 +231,7 @@ export function OwnerView() {
                           </p>
                           <p className="flex items-center gap-1 text-xs text-slate-400">
                             <Clock3 className="size-3" strokeWidth={2.2} />
-                            {formatShortDateTime(r.starts_at)} – {formatShortTime(r.ends_at)}
+                            {formatShortDateTime(r.starts_at)} – {formatShortTime(r.ends_at)} · Lavadora {r.machine}
                           </p>
                         </div>
                       </div>

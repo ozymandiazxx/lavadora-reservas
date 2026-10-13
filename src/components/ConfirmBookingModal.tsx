@@ -4,12 +4,13 @@ import { formatShortDateTime, formatShortTime } from '@/lib/dateUtils'
 interface ConfirmBookingModalProps {
   startsAt: string
   endsAt: string
+  machine: number
   submitting: boolean
   onConfirm: () => void
   onCancel: () => void
 }
 
-export function ConfirmBookingModal({ startsAt, endsAt, submitting, onConfirm, onCancel }: ConfirmBookingModalProps) {
+export function ConfirmBookingModal({ startsAt, endsAt, machine, submitting, onConfirm, onCancel }: ConfirmBookingModalProps) {
   return (
     <div className="fixed inset-0 z-40 flex animate-[fade-in_0.15s_ease-out] items-end justify-center bg-slate-900/40 backdrop-blur-sm sm:items-center">
       <div className="w-full max-w-sm animate-[slide-up_0.2s_ease-out] rounded-t-3xl bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-3xl">
@@ -31,7 +32,7 @@ export function ConfirmBookingModal({ startsAt, endsAt, submitting, onConfirm, o
           </div>
           <div>
             <p className="font-bold text-slate-900">{formatShortDateTime(startsAt)}</p>
-            <p className="text-sm text-slate-500">hasta las {formatShortTime(endsAt)} · Lavadora</p>
+            <p className="text-sm text-slate-500">hasta las {formatShortTime(endsAt)} · Lavadora {machine}</p>
           </div>
         </div>
 

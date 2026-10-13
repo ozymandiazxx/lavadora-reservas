@@ -79,9 +79,9 @@ export async function fetchMyReservations(tenantId: string): Promise<DbResult<Re
   return { data: data as Reservation[] | null, error: toDbError(error) }
 }
 
-export async function createReservation(tenantId: string, startsAt: string): Promise<DbResult<Reservation>> {
-  if (isDemoMode) return mockDb.createReservation(tenantId, startsAt)
-  const { data, error } = await supabase!.from('reservations').insert({ starts_at: startsAt }).select().single()
+export async function createReservation(tenantId: string, startsAt: string, machine: number): Promise<DbResult<Reservation>> {
+  if (isDemoMode) return mockDb.createReservation(tenantId, startsAt, machine)
+  const { data, error } = await supabase!.from('reservations').insert({ starts_at: startsAt, machine }).select().single()
   return { data: data as Reservation | null, error: toDbError(error) }
 }
 

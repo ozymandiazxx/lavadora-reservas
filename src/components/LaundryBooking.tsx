@@ -11,6 +11,7 @@ import {
   todayLocalISO,
 } from '@/lib/dateUtils'
 import { classifyReservationError } from '@/lib/errors'
+import { MACHINES } from '@/lib/constants'
 import type { OccupiedRange, Reservation } from '@/lib/types'
 import { ConfirmBookingModal } from './ConfirmBookingModal'
 import { DateSelector } from './DateSelector'
@@ -21,6 +22,7 @@ export function LaundryBooking({ userId }: { userId: string }) {
   const today = todayLocalISO()
   const [selectedDate, setSelectedDate] = useState(today)
   const [selectedTime, setSelectedTime] = useState('')
+  const [pickedMachine, setPickedMachine] = useState<number | null>(null)
   const [occupiedRanges, setOccupiedRanges] = useState<OccupiedRange[]>([])
   const [myReservations, setMyReservations] = useState<Reservation[]>([])
   const [submitting, setSubmitting] = useState(false)
@@ -51,17 +53,22 @@ export function LaundryBooking({ userId }: { userId: string }) {
   const startsAt = selectedTime ? combineDateAndTime(selectedDate, selectedTime) : null
   const endsAt = startsAt ? reservationEnd(startsAt) : null
 
-  const conflict = useMemo(() => {
-    if (!startsAt || !endsAt) return false
-    return occupiedRanges.some((r) => rangesOverlap(startsAt, endsAt, r.starts_at, r.ends_at))
+  // Lavadoras libres en el horario elegido; si la elegida deja de estar libre, se usa la primera libre.
+  const freeMachines = useMemo(() => {
+    if (!startsAt || !endsAt) return MACHINES
+    return MACHINES.filter(
+      (m) => !occupiedRanges.some((r) => r.machine === m && rangesOverlap(startsAt, endsAt, r.starts_at, r.ends_at)),
+    )
   }, [startsAt, endsAt, occupiedRanges])
+  const conflict = freeMachines.length === 0
+  const machine = pickedMachine !== null && freeMachines.includes(pickedMachine) ? pickedMachine : (freeMachines[0] ?? null)
 
   const isPast = startsAt ? localDateTimeAlreadyPassed(startsAt) : false
 
   async function handleConfirmReservation() {
-    if (!startsAt) return
+    if (!startsAt || machine === null) return
     setSubmitting(true)
-    const { error } = await createReservation(userId, startsAt)
+    const { error } = await createReservation(userId, startsAt, machine)
     setSubmitting(false)
 
     if (error) {
@@ -123,7 +130,7 @@ export function LaundryBooking({ userId }: { userId: string }) {
           />
           <button
             type="button"
-            disabled={!startsAt || conflict || isPast}
+            disabled={!startsAt || conflict || isPast || machine === null}
             onClick={() => setShowConfirm(true)}
             className="rounded-xl bg-teal-600 px-5 py-3 text-sm font-bold text-white shadow-md shadow-teal-600/25 transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
           >
@@ -141,12 +148,43 @@ export function LaundryBooking({ userId }: { userId: string }) {
             {isPast
               ? 'Ese horario ya pasó.'
               : conflict
-                ? 'Se superpone con otra reserva.'
+                ? 'Las 3 lavadoras están ocupadas a esa hora.'
                 : `Ciclo de 1h45: ${formatShortTime(startsAt)} – ${formatShortTime(endsAt)}`}
           </p>
         )}
 
-        <p className="mt-2 text-xs text-slate-400">Cada ciclo de lavado/secado dura 1h45.</p>
+        {startsAt && !isPast && !conflict && (
+          <div className="mt-3">
+            <p className="mb-1.5 text-xs font-bold text-slate-500">Lavadora</p>
+            <div className="grid grid-cols-3 gap-2">
+              {MACHINES.map((m) => {
+                const free = freeMachines.includes(m)
+                const active = machine === m
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    disabled={!free}
+                    onClick={() => setPickedMachine(m)}
+                    className={`flex flex-col items-center gap-0.5 rounded-xl py-2 text-xs font-bold transition ${
+                      active
+                        ? 'bg-teal-600 text-white shadow-sm'
+                        : free
+                          ? 'bg-slate-100 text-slate-600'
+                          : 'bg-slate-50 text-slate-300 line-through'
+                    }`}
+                  >
+                    <WashingMachine className="size-4" strokeWidth={2.2} />
+                    {m}
+                    <span className="text-[10px] font-semibold">{free ? 'Libre' : 'Ocupada'}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        <p className="mt-2 text-xs text-slate-400">Cada ciclo de lavado/secado dura 1h45. Hay 3 lavadoras.</p>
       </div>
 
       <div>
@@ -167,7 +205,7 @@ export function LaundryBooking({ userId }: { userId: string }) {
                   <p className="font-bold text-slate-800">
                     {formatShortTime(r.starts_at)} – {formatShortTime(r.ends_at)}
                   </p>
-                  <p className="text-xs text-slate-400">Lavadora</p>
+                  <p className="text-xs text-slate-400">Lavadora {r.machine}</p>
                 </div>
                 <span className="flex items-center gap-1 rounded-full bg-rose-50 px-2.5 py-1 text-xs font-bold text-rose-500">
                   <span className="size-1.5 rounded-full bg-rose-400" /> Ocupado
@@ -204,7 +242,9 @@ export function LaundryBooking({ userId }: { userId: string }) {
                 </div>
                 <div className="flex-1">
                   <p className="font-bold text-slate-800">{formatShortDateTime(r.starts_at)}</p>
-                  <p className="text-xs text-slate-500">hasta las {formatShortTime(r.ends_at)}</p>
+                  <p className="text-xs text-slate-500">
+                    hasta las {formatShortTime(r.ends_at)} · Lavadora {r.machine}
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -220,10 +260,11 @@ export function LaundryBooking({ userId }: { userId: string }) {
         </div>
       )}
 
-      {showConfirm && startsAt && endsAt && (
+      {showConfirm && startsAt && endsAt && machine !== null && (
         <ConfirmBookingModal
           startsAt={startsAt}
           endsAt={endsAt}
+          machine={machine}
           submitting={submitting}
           onConfirm={handleConfirmReservation}
           onCancel={() => setShowConfirm(false)}

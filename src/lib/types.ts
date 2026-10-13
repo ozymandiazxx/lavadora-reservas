@@ -21,6 +21,8 @@ export interface Reservation {
   /** Fecha y hora local sin zona horaria, formato "YYYY-MM-DDTHH:mm:ss". */
   starts_at: string
   ends_at: string
+  /** Lavadora (1 a 3). */
+  machine: number
   created_at: string
 }
 
@@ -32,6 +34,7 @@ export interface ReservationWithDetails extends Reservation {
 export interface OccupiedRange {
   starts_at: string
   ends_at: string
+  machine: number
 }
 
 export interface LostFoundReport {

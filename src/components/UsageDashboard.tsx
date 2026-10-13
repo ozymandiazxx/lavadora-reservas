@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Droplets, TrendingUp, WashingMachine } from 'lucide-react'
+import { MACHINES } from '@/lib/constants'
 import { addDaysLocal, dateOf, diffMinutes, isoWeekKey } from '@/lib/dateUtils'
 import { FLOOR_LABEL, FLOORS } from '@/lib/rooms'
 import type { ReservationWithDetails } from '@/lib/types'
@@ -75,12 +76,14 @@ export function UsageDashboard({ reservations, start, end }: UsageDashboardProps
     const byRoom = new Map<string, RoomUsage>()
     const tenants = new Set<string>()
     const dailyMinutes = new Map<string, number>()
+    const byMachine = new Map<number, number>()
 
     for (const r of reservations) {
       const minutes = diffMinutes(r.starts_at, r.ends_at)
       totalMinutes += minutes
       const day = dateOf(r.starts_at)
       dailyMinutes.set(day, (dailyMinutes.get(day) ?? 0) + minutes)
+      byMachine.set(r.machine, (byMachine.get(r.machine) ?? 0) + minutes)
       if (!r.profiles) continue
 
       tenants.add(`${r.profiles.floor}|${r.profiles.room_number}`)
@@ -106,6 +109,8 @@ export function UsageDashboard({ reservations, start, end }: UsageDashboardProps
       (r) => r.minutes > 0,
     )
     const roomRows = [...byRoom.values()].sort((a, b) => b.minutes - a.minutes).slice(0, 8)
+    const machineRows = MACHINES.map((m) => ({ label: `Lavadora ${m}`, minutes: byMachine.get(m) ?? 0 }))
+    const maxMachineMinutes = Math.max(...machineRows.map((r) => r.minutes), 1)
     const maxFloorMinutes = Math.max(...floorRows.map((r) => r.minutes), 1)
     const maxRoomMinutes = Math.max(...roomRows.map((r) => r.minutes), 1)
 
@@ -132,6 +137,8 @@ export function UsageDashboard({ reservations, start, end }: UsageDashboardProps
       totalCount: reservations.length,
       tenantCount: tenants.size,
       floorRows,
+      machineRows,
+      maxMachineMinutes,
       roomRows,
       maxFloorMinutes,
       maxRoomMinutes,
@@ -164,6 +171,16 @@ export function UsageDashboard({ reservations, start, end }: UsageDashboardProps
           Horas de uso por {stats.trendIsWeekly ? 'semana' : 'día'} — tocá el gráfico para ver el detalle.
         </p>
         <UsageTrendChart points={stats.trendPoints} />
+      </div>
+
+      <div className="rounded-2xl bg-white p-4 shadow-sm shadow-slate-900/5">
+        <h4 className="mb-1 text-sm font-bold text-slate-700">Uso por lavadora</h4>
+        <p className="mb-3 text-xs text-slate-400">Para ver si una máquina trabaja más que las otras.</p>
+        <div className="space-y-3">
+          {stats.machineRows.map((r) => (
+            <BarRow key={r.label} label={r.label} minutes={r.minutes} maxMinutes={stats.maxMachineMinutes} />
+          ))}
+        </div>
       </div>
 
       {stats.floorRows.length > 0 && (
