@@ -39,7 +39,7 @@ export function BuildingPanel() {
   const today = todayLocalISO()
   const [mode, setMode] = useState<Mode>('pagos')
   const [usagePeriod, setUsagePeriod] = useState<UsagePeriod>('month')
-  const [onlyFloor, setOnlyFloor] = useState<Floor | null>(null)
+  const [focus, setFocus] = useState<'fachada' | 'todos' | Floor>('fachada')
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [rent, setRent] = useState<RentData | null>(null)
@@ -118,6 +118,25 @@ export function BuildingPanel() {
     return result
   }, [profiles, stats, mode, maxUses])
 
+  const view = focus === 'fachada' ? 'fachada' : 'interior'
+  const onlyFloor = focus === 'fachada' || focus === 'todos' ? null : focus
+
+  // Resumen corto sobre cada piso en la fachada.
+  const badges = useMemo(() => {
+    const result: Partial<Record<Floor, string>> = {}
+    for (const floor of FLOORS) {
+      const occupied = cells.filter((c) => c.floor === floor && c.profile)
+      if (mode === 'pagos') {
+        const overdue = occupied.filter((c) => stats.get(c.profile!.id)?.status === 'vencido').length
+        result[floor] = overdue > 0 ? `${overdue} ${overdue === 1 ? 'vencido' : 'vencidos'}` : occupied.length > 0 ? 'al día' : ''
+      } else {
+        const uses = occupied.reduce((t, c) => t + (stats.get(c.profile!.id)?.uses ?? 0), 0)
+        result[floor] = `${uses} ${uses === 1 ? 'uso' : 'usos'}`
+      }
+    }
+    return result
+  }, [cells, stats, mode])
+
   const selected = cells.find((c) => c.key === selectedKey)
   const selectedStats = selected?.profile ? stats.get(selected.profile.id) : undefined
 
@@ -142,19 +161,19 @@ export function BuildingPanel() {
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-        {([null, ...[...FLOORS].reverse()] as Array<Floor | null>).map((f) => (
+        {(['fachada', 'todos', ...[...FLOORS].reverse()] as Array<'fachada' | 'todos' | Floor>).map((f) => (
           <button
-            key={f ?? 'todos'}
+            key={f}
             type="button"
             onClick={() => {
-              setOnlyFloor(f)
+              setFocus(f)
               setSelectedKey(null)
             }}
             className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition ${
-              onlyFloor === f ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 shadow-sm shadow-slate-900/5'
+              focus === f ? 'bg-slate-800 text-white' : 'bg-white text-slate-500 shadow-sm shadow-slate-900/5'
             }`}
           >
-            {f ? FLOOR_LABEL[f] : 'Edificio completo'}
+            {f === 'fachada' ? 'Fachada' : f === 'todos' ? 'Pisos por dentro' : FLOOR_LABEL[f]}
           </button>
         ))}
       </div>
@@ -163,10 +182,21 @@ export function BuildingPanel() {
         {loading ? (
           <p className="flex h-full items-center justify-center text-sm text-slate-500">Cargando edificio…</p>
         ) : (
-          <Building3D cells={cells} selectedKey={selectedKey} onlyFloor={onlyFloor} onSelect={setSelectedKey} />
+          <Building3D
+            cells={cells}
+            selectedKey={selectedKey}
+            onlyFloor={onlyFloor}
+            onSelect={setSelectedKey}
+            view={view}
+            badges={badges}
+            onPickFloor={(floor) => {
+              setFocus(floor)
+              setSelectedKey(null)
+            }}
+          />
         )}
         <p className="pointer-events-none absolute bottom-2 left-0 w-full text-center text-[11px] font-semibold text-slate-400">
-          Arrastra para girar · pellizca para acercar · toca una habitación
+          {view === 'fachada' ? 'Arrastra para girar · toca un piso para ver sus habitaciones' : 'Arrastra para girar · pellizca para acercar · toca una habitación'}
         </p>
       </div>
 

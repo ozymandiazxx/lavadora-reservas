@@ -1,6 +1,7 @@
 import { Canvas } from '@react-three/fiber'
 import { Edges, Html, OrbitControls } from '@react-three/drei'
 import { FLOOR_LABEL, FLOORS } from '@/lib/rooms'
+import { Facade } from './Facade3D'
 import type { Floor } from '@/lib/types'
 
 export interface RoomCell {
@@ -173,24 +174,34 @@ interface Building3DProps {
   /** Si es un piso, solo se dibuja ese; el resto se oculta para poder tocar las habitaciones. */
   onlyFloor: Floor | null
   onSelect: (key: string | null) => void
+  /** "fachada" = exterior del edificio; "interior" = pisos con sus habitaciones. */
+  view: 'fachada' | 'interior'
+  /** Texto corto por piso que se muestra sobre la fachada. */
+  badges: Partial<Record<Floor, string>>
+  /** Al tocar un piso en la fachada. */
+  onPickFloor: (floor: Floor) => void
 }
 
-export function Building3D({ cells, selectedKey, onlyFloor, onSelect }: Building3DProps) {
+export function Building3D({ cells, selectedKey, onlyFloor, onSelect, view, badges, onPickFloor }: Building3DProps) {
   const visibleFloors = FLOORS.filter((f) => !onlyFloor || f === onlyFloor)
+  const facade = view === 'fachada'
 
   return (
     <Canvas
+      key={view}
       dpr={[1, 2]}
-      camera={{ position: [15, 9, 17], fov: 40 }}
+      camera={{ position: facade ? [9, 6.5, 21] : [15, 9, 17], fov: 40 }}
       onPointerMissed={() => onSelect(null)}
       style={{ touchAction: 'none' }}
     >
-      <ambientLight intensity={1.15} />
+      <ambientLight intensity={1.5} />
       <directionalLight position={[8, 12, 6]} intensity={1.5} />
       <directionalLight position={[-8, 5, -6]} intensity={0.5} />
 
-      <group>
-        {visibleFloors.map((floor) => {
+      {facade && <Facade badges={badges} onPick={onPickFloor} />}
+
+      <group visible={!facade}>
+        {!facade && visibleFloors.map((floor) => {
           const level = onlyFloor ? 0 : FLOORS.indexOf(floor)
           const floorCells = cells.filter((c) => c.floor === floor)
           const suite = isSuiteFloor(floor)
@@ -238,15 +249,15 @@ export function Building3D({ cells, selectedKey, onlyFloor, onSelect }: Building
         })}
 
         {/* Escalera entre los pisos 2 y 3 (referencial) */}
-        {!onlyFloor && <Stairs from={FLOORS.indexOf('piso_2')} to={FLOORS.indexOf('piso_3')} />}
+        {!facade && !onlyFloor && <Stairs from={FLOORS.indexOf('piso_2')} to={FLOORS.indexOf('piso_3')} />}
       </group>
 
       <OrbitControls
         enablePan={false}
         minDistance={8}
-        maxDistance={34}
+        maxDistance={facade ? 40 : 34}
         maxPolarAngle={Math.PI / 2.05}
-        target={[0, onlyFloor ? 0 : 3.6, -0.3]}
+        target={facade ? [0, 4.5, 0] : [0, onlyFloor ? 0 : 3.6, -0.3]}
         makeDefault
       />
     </Canvas>
