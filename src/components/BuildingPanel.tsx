@@ -99,15 +99,20 @@ export function BuildingPanel() {
           ? [...NORMAL_ROOMS, ...onFloor.map((p) => p.room_number).filter((n) => !NORMAL_ROOMS.includes(n))]
           : onFloor.map((p) => p.room_number).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
 
-      for (const number of numbers) {
-        const profile = byRoom.get(number)
+      // Subsuelo y terraza: se muestran al menos 6 suites (referencial) aunque falten registrar.
+      const slots = numbers.map((n) => n as string | null)
+      if (floor === 'subsuelo' || floor === 'terraza') while (slots.length < 6) slots.push(null)
+
+      for (const [index, slot] of slots.entries()) {
+        const number = slot ?? '—'
+        const profile = slot ? byRoom.get(slot) : undefined
         const s = profile ? stats.get(profile.id) : undefined
         let color = VACANT_COLOR
         if (profile && s) {
           if (mode === 'pagos') color = s.status ? STATUS_COLOR[s.status] : NO_CHARGE_COLOR
           else color = s.uses === 0 ? '#e2e8f0' : lerpColor('#99f6e4', '#115e59', s.uses / maxUses)
         }
-        result.push({ key: `${floor}-${number}`, floor, number, color, vacant: !profile, profile })
+        result.push({ key: `${floor}-${index}-${number}`, floor, number, color, vacant: !profile, profile })
       }
     }
     return result
